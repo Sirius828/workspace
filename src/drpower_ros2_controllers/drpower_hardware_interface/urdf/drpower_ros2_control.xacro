@@ -1,0 +1,160 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="drpower_ros2_control" params="
+    name
+    device_path:=/dev/ttyUSB0 
+    baudrate:=115200
+    control_frequency:=100.0
+    enable_state_feedback:=true
+    state_feedback_rate_ms:=10">
+
+    <ros2_control name="${name}" type="system">
+      
+      <hardware>
+        <plugin>drpower_hardware_interface/DrPowerHardwareInterface</plugin>
+        <param name="device_path">${device_path}</param>
+        <param name="baudrate">${baudrate}</param>
+        <param name="control_frequency">${control_frequency}</param>
+        <param name="enable_state_feedback">${enable_state_feedback}</param>
+        <param name="state_feedback_rate_ms">${state_feedback_rate_ms}</param>
+      </hardware>
+
+      <!-- 六轴机械臂关节 -->
+      <joint name="joint1">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">1</param>
+        <param name="position_mode">1</param>
+        <param name="position_acceleration">15.0</param>
+        <param name="velocity_mode">1</param>
+        <param name="velocity_acceleration">10.0</param>
+      </joint>
+
+      <joint name="joint2">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">2</param>
+        <param name="position_mode">1</param>
+        <param name="position_acceleration">15.0</param>
+        <param name="velocity_mode">1</param>
+        <param name="velocity_acceleration">10.0</param>
+      </joint>
+
+      <joint name="joint3">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">3</param>
+        <param name="position_mode">1</param>
+        <param name="position_acceleration">15.0</param>
+        <param name="velocity_mode">1</param>
+        <param name="velocity_acceleration">10.0</param>
+      </joint>
+
+      <joint name="joint4">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">4</param>
+        <param name="position_mode">1</param>
+        <param name="position_acceleration">15.0</param>
+        <param name="velocity_mode">1</param>
+        <param name="velocity_acceleration">10.0</param>
+      </joint>
+
+      <joint name="joint5">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">5</param>
+        <param name="position_mode">1</param>
+        <param name="position_acceleration">15.0</param>
+        <param name="velocity_mode">1</param>
+        <param name="velocity_acceleration">10.0</param>
+      </joint>
+
+      <joint name="joint6">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">6</param>
+        <param name="position_mode">1</param>
+        <param name="position_acceleration">15.0</param>
+        <param name="velocity_mode">1</param>
+        <param name="velocity_acceleration">10.0</param>
+      </joint>
+
+    </ros2_control>
+
+  </xacro:macro>
+
+  <!-- 云台配置宏 -->
+  <xacro:macro name="drpower_gimbal_ros2_control" params="
+    name
+    device_path:=/dev/ttyUSB0 
+    baudrate:=115200">
+
+    <ros2_control name="${name}" type="system">
+      
+      <hardware>
+        <plugin>drpower_hardware_interface/DrPowerHardwareInterface</plugin>
+        <param name="device_path">${device_path}</param>
+        <param name="baudrate">${baudrate}</param>
+        <param name="control_frequency">100.0</param>
+        <param name="enable_state_feedback">true</param>
+        <param name="state_feedback_rate_ms">10</param>
+      </hardware>
+
+      <!-- 云台关节 -->
+      <joint name="pan_joint">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">7</param>
+        <param name="position_mode">0</param>     <!-- 轨迹跟踪模式 -->
+        <param name="filter_bandwidth">50.0</param>
+        <param name="feedforward_velocity">5.0</param>
+        <param name="velocity_mode">0</param>     <!-- 直接控制模式 -->
+      </joint>
+
+      <joint name="tilt_joint">
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <param name="id">8</param>
+        <param name="position_mode">0</param>
+        <param name="filter_bandwidth">50.0</param>
+        <param name="feedforward_velocity">5.0</param>
+        <param name="velocity_mode">0</param>
+      </joint>
+
+    </ros2_control>
+
+  </xacro:macro>
+
+</robot>

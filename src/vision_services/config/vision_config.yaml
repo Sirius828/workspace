@@ -1,0 +1,150 @@
+vision_services_node:
+  ros__parameters:
+    image_preprocessing:
+      gaussian_blur:
+        kernel_size_x: 1
+        kernel_size_y: 1
+        sigma_x: 0
+        sigma_y: 0
+      morphology:
+        kernel_size_x: 3
+        kernel_size_y: 3
+        iterations: 1
+      canny:
+        low_threshold: 50
+        high_threshold: 150
+        aperture_size: 3
+      mask_enhancement_enabled: false
+      contrast_enhancement_factor: 2.5
+      line_dilation_kernel_size: 3
+      line_dilation_iterations: 1
+      center_crop:
+        enabled: false
+        width: 600
+        height: 600
+        zoom_factor: 1.5
+
+      # ---------- ROI Mask: block outside given polygon ----------
+      roi_mask:
+        enabled: true
+        polygon: [523.0, 238.0, 799.0, 242.0, 806.0, 517.0, 523.0, 523.0] # TL TR BR BL
+        
+    
+    # ---------- 预定义平板四角点: 按顺序 Top-Left, Top-Right, Bottom-Right, Bottom-Left ----------
+    predef_corners: [523.0, 238.0, 799.0, 242.0, 806.0, 517.0, 523.0, 523.0] # TL TR BR BL
+      # - [588.0, 190.0]   # Top-Left
+      # - [863.0, 190.0]   # Top-Right
+      # - [877.0, 467.0]   # Bottom-Right
+      # - [588.0, 469.0]   # Bottom-Left
+    
+    
+    # ---------- 轮廓增强和角度补全参数: 专门针对不完整铅笔线轨迹的增强处理 ----------
+    contour_enhancement_enabled: false          # 是否启用轮廓增强，帮助检测不完整的正方形
+    angle_completion_enabled: false             # 是否启用角度补全，基于检测到的角点推断缺失角点
+    min_detected_corners: 2                    # 最少检测到的角点数量，3个角点即可推断第4个
+    corner_detection_sensitivity: 0.01         # 角点检测敏感度，值越小检测越精确
+    missing_corner_max_distance: 100           # 推断缺失角点的最大距离（像素）
+    contour_gap_closing_enabled: true          # 是否启用轮廓间隙闭合，连接断开的线段
+    gap_closing_max_distance: 20               # 轮廓间隙闭合的最大距离（像素）
+    
+    # ---------- A4矩形检测参数: 设置检测类似A4纸框大小的轮廓最小/最大面积和逼近误差 ----------
+    # A4矩形检测参数
+    a4_contour_min_area: 100                  # A4矩形轮廓最小面积（像素²），值越大过滤更多小杂物和噪声
+    a4_contour_max_area: 200000                # A4矩形轮廓最大面积（像素²），值越小防止检测过大无关区域
+    a4_contour_approx_epsilon_factor: 0.01     # A4矩形多边形逼近误差因子，值越小拟合越精确，适合规整的胶带框
+    
+    # ---------- 胶带检测参数 (HSV颜色范围): 定义黑色电工胶布的HSV阈值和形态学处理，用于提取胶带区域 ----------
+    # 胶带检测参数 (HSV颜色范围)
+    tape_hsv_lower_h: 0                        # 色调下限，0-180，检测黑色胶带的色调范围下边界
+    tape_hsv_lower_s: 0                        # 饱和度下限，0-255，值越高要求颜色越鲜艳，0适合检测黑色
+    tape_hsv_lower_v: 0                        # 明度下限，0-255，值越低包含更暗的区域，适合检测黑色胶带
+    tape_hsv_upper_h: 180                      # 色调上限，覆盖整个色调范围，确保包含所有黑色变化
+    tape_hsv_upper_s: 255                      # 饱和度上限，覆盖整个饱和度范围
+    tape_hsv_upper_v: 100                      # 明度上限，提高到180包含更多灰色铅笔线，值越高包含更多亮度变化
+    
+    tape_morphology_kernel_size_x: 3           # 胶带形态学处理核宽度，值越大连接断裂胶带效果越好
+    tape_morphology_kernel_size_y: 3           # 胶带形态学处理核高度，值越大连接断裂胶带效果越好
+    tape_morphology_iterations: 3              # 胶带形态学迭代次数，值越大连接效果越强，填补胶带中的空洞
+    
+    # ---------- 矩形验证参数: 根据长宽比和角度对检测到的矩形进行进一步筛选 ----------
+    # 矩形验证参数
+    rectangle_validation_min_aspect_ratio: 1.0 # 矩形长宽比最小值，值越接近1要求越接近正方形，越大允许更长的矩形
+    rectangle_validation_max_aspect_ratio: 2.0 # 矩形长宽比最大值，值越小限制矩形不能太长，防止误检测线条
+    rectangle_validation_min_angle: 80         # 矩形内角最小值（度），值越接近90度要求角度越标准
+    rectangle_validation_max_angle: 100        # 矩形内角最大值（度），值越接近90度要求角度越标准
+    
+    # ---------- 旋转矩形检测参数: 设置检测旋转矩形的面积范围和角度范围 ----------
+    # 旋转矩形检测参数
+    rotated_rect_min_area: 1000                # 旋转矩形最小面积（像素²），值越大过滤小杂物但可能丢失小目标
+    rotated_rect_max_area: 100000              # 旋转矩形最大面积（像素²），值越小防止检测过大区域
+    rotated_rect_min_angle: -45                # 旋转矩形最小角度（度），限制检测的旋转范围下限
+    rotated_rect_max_angle: 45                 # 旋转矩形最大角度（度），限制检测的旋转范围上限
+    
+    # ---------- 发布相关参数: 定义检测结果发布的ROS话题名称和参考坐标系 ----------
+    # 发布相关参数
+    target_position_topic: "/target_position"  # 目标中心位置发布话题名称
+    corner_points_topic: "/corner_points"      # 角点坐标发布话题名称
+    midline_points_topic: "/midline_points"    # 中线点坐标发布话题名称
+    frame_id: "camera_color_optical_frame"     # 坐标系ID，所有发布的坐标都基于此坐标系
+    
+    # ---------- 像素到实际坐标转换: 配置像素到实际世界坐标的转换比例 ----------
+    # 像素到实际坐标转换
+    pixel_to_meter_enabled: false              # 是否启用像素到米的转换，true时发布真实世界坐标
+    pixel_to_meter_scale_x: 0.001              # X方向像素到米的转换比例，值越大表示每像素代表更大的实际距离
+    pixel_to_meter_scale_y: 0.001              # Y方向像素到米的转换比例，值越大表示每像素代表更大的实际距离
+    
+    # ---------- 调试和预览参数: 控制是否显示或保存中间处理结果，以及日志级别 ----------
+    # 调试和预览参数
+    debug_show_images: false                   # 是否显示调试图像窗口，true时弹出OpenCV窗口显示处理过程
+    debug_save_processed_images: false         # 是否保存处理后的图像到文件，用于离线分析
+    debug_save_path: "/tmp/vision_debug/"      # 调试图像保存路径，需要确保目录存在且有写权限
+    debug_log_level: "INFO"                    # 日志级别：DEBUG（最详细）、INFO（一般）、WARN（警告）、ERROR（仅错误）
+    
+    # ---------- 预览界面参数: 设置调试预览窗口的尺寸和位置 ----------
+    # 预览界面参数
+    preview_enabled: true                      # 是否启用预览界面，true时显示实时检测结果窗口
+    preview_window_width: 1280                 # 预览窗口宽度（像素），值越大显示越详细但占用更多显存
+    preview_window_height: 720                 # 预览窗口高度（像素），值越大显示越详细但占用更多显存
+    
+    # ---------- 显示选项: 控制在预览界面中显示哪些图层（原始、预处理、轮廓、结果、信息面板） ----------
+    # 显示选项
+    preview_show_original: true                # 是否显示原始图像，关闭可减少显示负担
+    preview_show_preprocessed: true            # 是否显示预处理后图像（边缘检测、HSV掩码等），用于调试预处理效果
+    preview_show_contours: true                # 是否显示检测到的轮廓，用于调试轮廓检测效果
+    preview_show_results: true                 # 是否显示最终检测结果（矩形框、角点等），主要输出
+    preview_show_info_panel: true              # 是否显示信息面板（检测时间、参数等），用于性能监控
+    
+    # ---------- 颜色配置 (BGR格式): 定义绘制不同元素（轮廓、中心点、文本等）时使用的BGR颜色 ----------
+    # 颜色配置 (BGR格式)
+    # (已移除正方形轮廓颜色配置项)
+    color_rectangle_contour_b: 255             # 矩形轮廓颜色-蓝色分量，当前设置为蓝色
+    color_rectangle_contour_g: 0               # 矩形轮廓颜色-绿色分量
+    color_rectangle_contour_r: 0               # 矩形轮廓颜色-红色分量
+    color_center_point_b: 0                    # 中心点颜色-蓝色分量
+    color_center_point_g: 0                    # 中心点颜色-绿色分量
+    color_center_point_r: 255                  # 中心点颜色-红色分量，当前设置为红色
+    color_corner_points_b: 255                 # 角点颜色-蓝色分量
+    color_corner_points_g: 255                 # 角点颜色-绿色分量，当前设置为黄色
+    color_corner_points_r: 0                   # 角点颜色-红色分量
+    color_midline_b: 128                       # 中线颜色-蓝色分量
+    color_midline_g: 0                         # 中线颜色-绿色分量，当前设置为紫色
+    color_midline_r: 128                       # 中线颜色-红色分量
+    color_text_b: 255                          # 文本颜色-蓝色分量
+    color_text_g: 255                          # 文本颜色-绿色分量，当前设置为白色
+    color_text_r: 255                          # 文本颜色-红色分量
+    
+    # ---------- 绘制参数: 设置轮廓线宽、点半径、文本字体大小和粗细 ----------
+    # 绘制参数
+    drawing_contour_thickness: 2               # 轮廓线条粗细（像素），值越大线条越粗越醒目
+    drawing_point_radius: 5                    # 点标记半径（像素），值越大点越大越醒目
+    drawing_text_font_scale: 0.6               # 文本字体缩放比例，值越大文字越大
+    drawing_text_thickness: 2                  # 文本线条粗细，值越大文字越粗
+    
+    # ---------- 更新频率: 设置预览刷新帧率（Hz） ----------
+    # 更新频率
+    preview_update_rate: 30                    # 预览界面刷新频率（Hz），值越高更新越流畅但消耗更多CPU
+    
+    # ---------- 窗口位置: 设置预览窗口在屏幕上的初始坐标（X, Y） ----------
+    # 窗口位置
+    window_position_x: 100                     # 预览窗口初始X坐标（像素），相对于屏幕左上角
+    window_position_y: 100                     # 预览窗口初始Y坐标（像素），相对于屏幕左上角

@@ -1,0 +1,50 @@
+# DrPower硬件接口配置
+drpower_hardware:
+  ros__parameters:
+    # CAN通信配置
+    device_path: "/dev/ttyUSB0"  # CAN转USB设备路径
+    baudrate: 115200             # 串口波特率
+    control_frequency: 100.0     # 控制频率 (Hz)
+    
+    # 状态反馈配置
+    enable_state_feedback: true  # 是否开启实时状态反馈
+    state_feedback_rate_ms: 10   # 状态反馈时间间隔 (ms)
+    
+    # 安全配置
+    emergency_stop_timeout: 1.0  # 急停超时时间 (s)
+    communication_timeout: 0.5   # 通信超时时间 (s)
+    
+    # 电机组配置示例（可选，会覆盖默认配置）
+    motor_groups:
+      arm:
+        motor_ids: [1, 2, 3, 4, 5, 6]
+        joint_names: ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
+        synchronized: true
+        position_control:
+          mode: 1                 # 梯形轨迹模式
+          acceleration: 15.0      # 加速度 (r/min/s)
+          max_velocity: 60.0      # 最大速度 (r/min)
+        velocity_control:
+          mode: 1                 # 匀加速模式
+          acceleration: 10.0      # 角加速度 (r/min/s)
+          
+      gimbal:
+        motor_ids: [7, 8]
+        joint_names: ["pan_joint", "tilt_joint"]
+        synchronized: true
+        position_control:
+          mode: 0                 # 轨迹跟踪模式（更适合云台）
+          filter_bandwidth: 50.0  # 滤波带宽
+          feedforward_velocity: 5.0
+        velocity_control:
+          mode: 0                 # 直接控制模式
+          feedforward_torque: 0.1
+          
+      gripper:
+        motor_ids: [9]
+        joint_names: ["gripper_joint"]
+        synchronized: false       # 独立控制
+        position_control:
+          mode: 1
+          acceleration: 20.0
+          max_velocity: 30.0

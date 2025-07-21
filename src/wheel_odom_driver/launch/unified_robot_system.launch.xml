@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- 统一串口管理机器人系统启动文件 -->
+  <!-- 使用unified_serial_manager统一管理串口通信，避免多节点串口冲突 -->
+  
+  <!-- 参数定义 -->
+  <arg name="serial_port" default="/dev/ttyTHS0" description="串口设备路径"/>
+  <arg name="baud_rate" default="115200" description="串口波特率"/>
+  <arg name="use_rviz" default="false" description="是否启动RViz"/>
+  <arg name="enable_camera" default="false" description="是否启动相机"/>
+  <arg name="enable_keyboard" default="true" description="是否启动键盘遥控"/>
+  <arg name="enable_yolo" default="false" description="是否启动YOLO检测"/>
+  
+  <!-- 统一串口管理节点 - 核心节点 -->
+  <node pkg="wheel_odom_driver" exec="unified_serial_manager_node" name="unified_serial_manager">
+    <param name="serial_port" value="$(var serial_port)"/>
+    <param name="baud_rate" value="$(var baud_rate)"/>
+    <param name="timeout" value="1.0"/>
+    <param name="odom_frame_id" value="odom"/>
+    <param name="base_frame_id" value="base_link"/>
+    <param name="publish_tf" value="true"/>
+    <param name="publish_gimbal_feedback" value="true"/>
+    <param name="cmd_vel_timeout" value="2.0"/>
+    <param name="gimbal_cmd_timeout" value="5.0"/>
+  </node>
+  
+  <!-- 简化云台控制节点 - 只发布角度命令 -->
+  <node pkg="gimbal_controller" exec="simplified_gimbal_controller_node" name="simplified_gimbal_controller">
+    <param name="image_width" value="640"/>
+    <param name="image_height" value="480"/>
+    <param name="camera_horizontal_fov" value="53.35"/>
+    <param name="camera_vertical_fov" value="41.30"/>
+    <param name="use_camera_info" value="true"/>
+    
+    <!-- PID参数 -->
+    <param name="kp_yaw" value="2.0"/>
+    <param name="ki_yaw" value="0.1"/>
+    <param name="kd_yaw" value="0.5"/>
+    <param name="kp_pitch" value="2.0"/>
+    <param name="ki_pitch" value="0.1"/>
+    <param name="kd_pitch" value="0.5"/>
+    
+    <!-- 控制参数 -->
+    <param name="dead_zone_pixels" value="10"/>
+    <param name="max_angle_step" value="2.0"/>
+    <param name="yaw_limit_min" value="-90.0"/>
+    <param name="yaw_limit_max" value="90.0"/>
+    <param name="pitch_limit_min" value="-30.0"/>
+    <param name="pitch_limit_max" value="30.0"/>
+    
+    <!-- 跟踪参数 -->
+    <param name="tracking_enabled" value="true"/>
+    <param name="control_frequency" value="20.0"/>
+  </node>
+  
+  <!-- 可靠键盘遥控节点 -->
+  <group if="$(var enable_keyboard)">
+    <node pkg="keyboard_teleop" exec="reliable_keyboard_teleop_node" name="reliable_keyboard_teleop" output="screen">
+      <param name="linear_scale" value="1.0"/>
+      <param name="angular_scale" value="1.0"/>
+      <param name="step_mode" value="true"/>
+      <param name="step_linear" value="0.1"/>
+      <param name="step_angular" value="0.2"/>
+      <param name="accumulate_mode" value="true"/>
+      <param name="max_linear" value="2.0"/>
+      <param name="max_angular" value="2.0"/>
+      <param name="publish_rate" value="10.0"/>
+      <param name="timeout" value="0.5"/>
+    </node>
+  </group>
+  
+  <!-- 相机驱动 -->
+  <group if="$(var enable_camera)">
+    <include file="$(find-pkg-share camera_driver)/launch/camera.launch.xml">
+      <arg name="camera_name" value="camera"/>
+      <arg name="device_id" value="0"/>
+      <arg name="image_width" value="640"/>
+      <arg name="image_height" value="480"/>
+      <arg name="fps" value="30"/>
+    </include>
+  </group>
+  
+  <!-- YOLO目标检测 -->
+  <group if="$(var enable_yolo)">
+    <include file="$(find-pkg-share yolo_detector)/launch/yolo_detector.launch.xml">
+      <arg name="model_path" value="$(find-pkg-share yolo_detector)/models/yolo_model.pt"/>
+      <arg name="input_topic" value="/camera/image_raw"/>
+      <arg name="output_topic" value="/target_pixel"/>
+      <arg name="confidence_threshold" value="0.5"/>
+    </include>
+  </group>
+  
+  <!-- RViz可视化 -->
+  <group if="$(var use_rviz)">
+    <node pkg="rviz2" exec="rviz2" name="rviz2" output="screen">
+      <arg name="rviz_config" value="$(find-pkg-share wheel_odom_driver)/rviz/robot_visualization.rviz"/>
+    </node>
+  </group>
+  
+</launch>

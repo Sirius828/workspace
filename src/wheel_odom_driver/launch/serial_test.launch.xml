@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- 串口测试节点 -->
+    <node pkg="wheel_odom_driver" exec="serial_test_node" name="serial_test_node" output="screen">
+        <param from="$(find-pkg-share wheel_odom_driver)/config/wheel_odom_config.yaml"/>
+    </node>
+</launch>

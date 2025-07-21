@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>gimbal_pixel_mapper</name>
+  <version>0.1.0</version>
+  <description>Pixel → Gimbal angle mapping node.</description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- 运行时依赖 -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+
+  <!-- PyPI 第三方库（通过 pip 安装）-->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>  <!-- 若只用 bilinear 可删 -->
+
+  <!-- 打包时需要 -->
+  <buildtool_depend>ament_python</buildtool_depend>
+  <export>
+  <build_type>ament_python</build_type>
+  </export>
+</package>

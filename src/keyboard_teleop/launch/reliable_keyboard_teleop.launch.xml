@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- 可靠的键盘遥控节点 -->
+    <node pkg="keyboard_teleop" exec="reliable_keyboard_teleop_node" name="reliable_keyboard_teleop_node" output="screen">
+    </node>
+</launch>

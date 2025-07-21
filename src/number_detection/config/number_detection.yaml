@@ -1,0 +1,20 @@
+number_detector:
+  ros__parameters:
+    # 模型路径配置
+    model_path: 'modules/number4.engine'  # YOLO模型文件路径
+    
+    # 检测参数
+    confidence_threshold: 0.75  # 置信度阈值
+    device: 0  # GPU设备号 (0为第一个GPU，-1为CPU)
+    
+    # 数字范围配置
+    min_number: 30  # 最小数字
+    max_number: 60  # 最大数字
+    
+    # 预览画面配置
+    enable_preview: true  # 是否启用预览画面
+    
+    # 话题配置
+    image_topic: '/camera/color/image_raw'  # 输入图像话题
+    number_topic: '/number'  # 输出数字话题
+    result_image_topic: '/number_detection_result'  # 检测结果图像话题

@@ -1,0 +1,245 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="gimbal">
+  
+  <!-- ====== 偏移关系参数 - 请根据实际标定结果修改 ====== -->
+  
+  <!-- screen_frame到camera_link的静态变换 (从标定得到) -->
+  <xacro:property name="screen_to_camera_x" value="1.0"/>
+  <xacro:property name="screen_to_camera_y" value="0.0"/>
+  <xacro:property name="screen_to_camera_z" value="0.0"/>
+  <xacro:property name="screen_to_camera_roll" value="0.0"/>
+  <xacro:property name="screen_to_camera_pitch" value="0.0"/>
+  <xacro:property name="screen_to_camera_yaw" value="3.1415"/>
+  
+  <!-- camera_link到gimbal_base_link的静态变换 (相机→云台底座外参) -->
+  <xacro:property name="camera_to_gimbal_base_x" value="0.012564"/>
+  <xacro:property name="camera_to_gimbal_base_y" value="0.080182"/>
+  <xacro:property name="camera_to_gimbal_base_z" value="-0.2"/>
+  <xacro:property name="camera_to_gimbal_base_roll" value="0.0"/>
+  <xacro:property name="camera_to_gimbal_base_pitch" value="0.0"/>
+  <xacro:property name="camera_to_gimbal_base_yaw" value="0.0"/>
+  
+  <!-- pan_joint的安装位置 -->
+  <xacro:property name="gimbal_base_to_pan_x" value="0.0"/>
+  <xacro:property name="gimbal_base_to_pan_y" value="0.0"/>
+  <xacro:property name="gimbal_base_to_pan_z" value="0.04685"/>
+  
+  <!-- tilt_joint的安装位置 -->
+  <xacro:property name="pan_to_tilt_x" value="0.00058"/>
+  <xacro:property name="pan_to_tilt_y" value="-0.024078"/>
+  <xacro:property name="pan_to_tilt_z" value="0.085922"/>
+  
+  <!-- laser_link的光心小偏移 -->
+  <xacro:property name="tilt_to_laser_x" value="0.0"/>
+  <xacro:property name="tilt_to_laser_y" value="0.034982"/>
+  <xacro:property name="tilt_to_laser_z" value="0.000"/>
+  <xacro:property name="tilt_to_laser_roll" value="0.0"/>
+  <xacro:property name="tilt_to_laser_pitch" value="0.0"/>
+  <xacro:property name="tilt_to_laser_yaw" value="0.0"/>
+  
+  <!-- 关节限制 -->
+  <xacro:property name="pan_joint_lower_limit" value="-1.57079"/>
+  <xacro:property name="pan_joint_upper_limit" value="1.57079"/>
+  <xacro:property name="tilt_joint_lower_limit" value="-1.57079"/>
+  <xacro:property name="tilt_joint_upper_limit" value="1.57079"/>
+  
+  <!-- 几何参数 -->
+  <xacro:property name="PI" value="3.14159265359"/>
+  <xacro:property name="gimbal_base_height" value="0.01"/>
+  <xacro:property name="gimbal_base_radius" value="0.50"/>
+  <xacro:property name="pan_height" value="0.04185"/>
+  <xacro:property name="pan_radius" value="0.03335"/>
+  <xacro:property name="tilt_height" value="0.04185"/>
+  <xacro:property name="tilt_radius" value="0.03335"/>
+  
+  <!-- ====== 材料定义 ====== -->
+  <material name="blue">
+    <color rgba="0.0 0.0 1.0 1.0"/>
+  </material>
+  
+  <material name="red">
+    <color rgba="1.0 0.0 0.0 1.0"/>
+  </material>
+  
+  <material name="green">
+    <color rgba="0.0 1.0 0.0 1.0"/>
+  </material>
+  
+  <material name="grey">
+    <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
+  
+  <material name="orange">
+    <color rgba="1.0 0.5 0.0 1.0"/>
+  </material>
+
+  <!-- ====== 链接定义 ====== -->
+  
+  <!-- screen_frame - 屏幕坐标系（根链接） -->
+  <link name="screen_frame">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.5 0.5"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+  </link>
+
+  <!-- camera_link - 相机链接 -->
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.05 0.08 0.03"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.05 0.08 0.03"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <!-- gimbal_base_link - 云台底座链接 -->
+  <link name="gimbal_base_link">
+    <visual>
+      <origin xyz="0 0 ${gimbal_base_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="${gimbal_base_height}" radius="${gimbal_base_radius}"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${gimbal_base_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="${gimbal_base_height}" radius="${gimbal_base_radius}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${gimbal_base_height/2}" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.005" ixy="0.0" ixz="0.0" iyy="0.005" iyz="0.0" izz="0.005"/>
+    </inertial>
+  </link>
+
+  <!-- gimbal_pan_link - 云台水平旋转链接 -->
+  <link name="gimbal_pan_link">
+    <visual>
+      <origin xyz="0 0 ${pan_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="${pan_height}" radius="${pan_radius}"/>
+      </geometry>
+      <material name="red"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${pan_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="${pan_height}" radius="${pan_radius}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${pan_height/2}" rpy="0 0 0"/>
+      <mass value="0.3"/>
+      <inertia ixx="0.003" ixy="0.0" ixz="0.0" iyy="0.003" iyz="0.0" izz="0.003"/>
+    </inertial>
+  </link>
+
+  <!-- gimbal_tilt_link - 云台俯仰旋转链接 -->
+  <link name="gimbal_tilt_link">
+    <visual>
+      <origin xyz="0 0 ${tilt_height/2}" rpy="1.57 0 0"/>
+      <geometry>
+        <cylinder length="${tilt_height}" radius="${tilt_radius}"/>
+      </geometry>
+      <material name="green"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${tilt_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="${tilt_height}" radius="${tilt_radius}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${tilt_height/2}" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.002" ixy="0.0" ixz="0.0" iyy="0.002" iyz="0.0" izz="0.002"/>
+    </inertial>
+  </link>
+
+  <!-- laser_link - 激光器链接 -->
+  <link name="laser_link">
+    <visual>
+      <origin xyz="0.5 0 0" rpy="0 1.57 0"/>
+      <geometry>
+        <box size="0.01 0.01 1.0"/>
+      </geometry>
+      <material name="orange"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.02 0.02 0.03"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.05"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001"/>
+    </inertial>
+  </link>
+
+  <!-- ====== 关节定义 ====== -->
+  
+  <!-- screen_frame到camera_link的静态连接 -->
+  <joint name="screen_to_camera_joint" type="fixed">
+    <parent link="screen_frame"/>
+    <child link="camera_link"/>
+    <origin xyz="${screen_to_camera_x} ${screen_to_camera_y} ${screen_to_camera_z}" 
+            rpy="${screen_to_camera_roll} ${screen_to_camera_pitch} ${screen_to_camera_yaw}"/>
+  </joint>
+
+  <!-- camera_link到gimbal_base_link的静态连接 -->
+  <joint name="camera_to_gimbal_base_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="gimbal_base_link"/>
+    <origin xyz="${camera_to_gimbal_base_x} ${camera_to_gimbal_base_y} ${camera_to_gimbal_base_z}" 
+            rpy="${camera_to_gimbal_base_roll} ${camera_to_gimbal_base_pitch} ${camera_to_gimbal_base_yaw}"/>
+  </joint>
+
+  <!-- gimbal_yaw_joint - 水平旋转关节 (动态，θ_pan) -->
+  <joint name="gimbal_yaw_joint" type="revolute">
+    <parent link="gimbal_base_link"/>
+    <child link="gimbal_pan_link"/>
+    <origin xyz="${gimbal_base_to_pan_x} ${gimbal_base_to_pan_y} ${gimbal_base_to_pan_z}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${pan_joint_lower_limit}" upper="${pan_joint_upper_limit}" effort="10.0" velocity="2.0"/>
+    <dynamics damping="0.1" friction="0.1"/>
+  </joint>
+
+  <!-- gimbal_pitch_joint - 俯仰旋转关节 (动态，θ_tilt) -->
+  <joint name="gimbal_pitch_joint" type="revolute">
+    <parent link="gimbal_pan_link"/>
+    <child link="gimbal_tilt_link"/>
+    <origin xyz="${pan_to_tilt_x} ${pan_to_tilt_y} ${pan_to_tilt_z}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${tilt_joint_lower_limit}" upper="${tilt_joint_upper_limit}" effort="10.0" velocity="2.0"/>
+    <dynamics damping="0.1" friction="0.1"/>
+  </joint>
+
+  <!-- laser_link的静态连接 -->
+  <joint name="tilt_to_laser_joint" type="fixed">
+    <parent link="gimbal_tilt_link"/>
+    <child link="laser_link"/>
+    <origin xyz="${tilt_to_laser_x} ${tilt_to_laser_y} ${tilt_to_laser_z}" 
+            rpy="${tilt_to_laser_roll} ${tilt_to_laser_pitch} ${tilt_to_laser_yaw}"/>
+  </joint>
+
+</robot>

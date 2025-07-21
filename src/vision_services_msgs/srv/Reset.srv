@@ -1,0 +1,6 @@
+# Reset service - 识别正方形框并发布中心坐标
+# 请求为空
+---
+bool success
+string message
+geometry_msgs/Point center_point

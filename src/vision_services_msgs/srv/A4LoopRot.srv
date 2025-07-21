@@ -1,0 +1,7 @@
+# A4LoopRot service - 识别旋转A4矩形框胶带中线并发布角点
+# 请求为空
+---
+bool success
+string message
+geometry_msgs/Point32[] midline_points
+float32 rotation_angle

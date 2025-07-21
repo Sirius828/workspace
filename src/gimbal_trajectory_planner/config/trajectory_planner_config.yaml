@@ -1,0 +1,79 @@
+trajectory_planner_node:
+  ros__parameters:
+    # ---------- 输入话题配置 ----------
+    input_topic: "/target_position"           # 输入目标位置话题
+    corner_points_topic: "/corner_points"     # 角点坐标话题（SQUARE_LOOP使用）
+    midline_points_topic: "/midline_points"   # 中线点坐标话题（A4_LOOP和A4_LOOP_ROT使用）
+    corner_array_topic: "/corner_array"       # 角点数组话题（推荐接口）
+    camera_info_topic: "/camera/color/camera_info"  # 相机内参话题
+    depth_image_topic: "/camera/depth/image_raw"     # 深度图像话题
+    
+    # ---------- 输出话题配置 ----------
+    joint_states_topic: "/gimbal_joint_states"      # 关节状态发布话题
+    trajectory_points_topic: "/trajectory_points"   # 轨迹点发布话题（调试用）
+    
+    # ---------- 坐标系和TF配置 ----------
+    camera_frame: "camera_color_optical_frame"      # 相机光轴坐标系
+    screen_frame: "screen_frame"                     # 屏幕坐标系
+    gimbal_base_frame: "gimbal_base_link"           # 云台基座坐标系
+    gimbal_yaw_frame: "gimbal_yaw_link"             # 云台偏航坐标系
+    gimbal_pitch_frame: "gimbal_pitch_link"         # 云台俯仰坐标系
+    use_tf_transform: true                          # 是否使用TF变换进行坐标转换
+    use_depth_image: true                           # 是否使用深度图像
+    
+    # ---------- 屏幕物理参数 ----------
+    screen_physical_width: 2.5                    # 屏幕物理宽度(米)
+    screen_physical_height: 1.4                  # 屏幕物理高度(米)
+    
+    # ---------- 轨迹插值参数 ----------
+    interpolation_enabled: true                     # 是否启用轨迹插值
+    interpolation_frequency: 50.0                   # 插值频率 (Hz)，影响电机运动速度
+    interpolation_method: "cubic_spline"            # 插值方法: "linear", "cubic_spline", "bezier"
+    smoothing_factor: 0.1                          # 平滑因子 (0-1)，值越大越平滑但响应越慢
+    trajectory_duration: 0.01                       # 轨迹持续时间 (秒)，用于基于时间的插值
+    
+    # ---------- 轨迹类型配置 ----------
+    trajectory_mode: "point_to_point"              # 轨迹模式: "point_to_point", "closed_loop", "open_path"
+    auto_return_to_start: false                     # 是否自动返回起始点
+    loop_completion_delay: 1.0                      # 完成循环后的延迟时间 (秒)
+    
+    # ---------- 运动约束参数 ----------
+    max_yaw_velocity: 90.0                          # 最大偏航角速度 (度/秒)
+    max_pitch_velocity: 60.0                        # 最大俯仰角速度 (度/秒)
+    max_yaw_acceleration: 180.0                     # 最大偏航角加速度 (度/秒²)
+    max_pitch_acceleration: 120.0                   # 最大俯仰角加速度 (度/秒²)
+    
+    # ---------- 云台角度限制 ----------
+    yaw_angle_limits:
+      min: -90.0                                    # 偏航角最小值 (度)
+      max: 90.0                                     # 偏航角最大值 (度)
+    pitch_angle_limits:
+      min: -90.0                                    # 俯仰角最小值 (度)
+      max: 90.0                                     # 俯仰角最大值 (度)
+    
+    # ---------- 图像坐标转换参数 ----------
+    image_coordinate_system: "opencv"               # 图像坐标系类型: "opencv", "ros"
+    pixel_to_angle_conversion:
+      use_camera_info: true                         # 是否使用相机内参进行转换
+      manual_fov_horizontal: 90.0                   # 手动设置水平视场角 (度)
+      manual_fov_vertical: 65.0                     # 手动设置垂直视场角 (度)
+      image_width: 1280                             # 图像宽度 (像素)
+      image_height: 720                            # 图像高度 (像素)
+
+    # ---------- 调试和日志配置 ----------
+    debug_mode: true                                # 是否启用调试模式
+    publish_debug_info: true                        # 是否发布调试信息
+    log_level: "info"                               # 日志级别: "debug", "info", "warn", "error"
+    
+    # ---------- 云台关节配置 ----------
+    joint_names:
+      yaw_joint: "gimbal_yaw_joint"                 # 偏航关节名称
+      pitch_joint: "gimbal_pitch_joint"             # 俯仰关节名称
+    
+    # ---------- 安全配置 ----------
+    emergency_stop_enabled: true                    # 是否启用紧急停止
+    watchdog_timeout: 5.0                          # 看门狗超时时间 (秒)
+    max_trajectory_execution_time: 30.0             # 最大轨迹执行时间 (秒)
+
+    # ---------- 深度图像默认深度 ----------
+    default_depth: 2.0                              # 默认深度值 (米)

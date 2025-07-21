@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- 统一串口管理节点单独启动文件 -->
+  <!-- 用于调试底盘里程计和云台控制功能 -->
+  
+  <!-- 参数定义 -->
+  <arg name="serial_port" default="/dev/ttyTHS0" description="串口设备路径"/>
+  <arg name="baud_rate" default="115200" description="串口波特率"/>
+  <arg name="config_file" default="$(find-pkg-share wheel_odom_driver)/config/unified_serial_debug_config.yaml" description="配置文件路径"/>
+  <arg name="log_level" default="info" description="日志级别 (debug, info, warn, error)"/>
+  <arg name="use_sim_time" default="false" description="是否使用仿真时间"/>
+  
+  <!-- 统一串口管理节点 -->
+  <node pkg="wheel_odom_driver" exec="unified_serial_manager_node" name="unified_serial_manager" output="screen">
+    <!-- 加载配置文件 -->
+    <param from="$(var config_file)"/>
+    
+    <!-- 覆盖串口参数（如果通过命令行指定） -->
+    <param name="serial_port" value="$(var serial_port)"/>
+    <param name="baud_rate" value="$(var baud_rate)"/>
+    
+    <!-- 设置日志级别 -->
+    <param name="ros.logging.severity" value="$(var log_level)"/>
+    
+    <!-- 仿真时间设置 -->
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+  
+  <!-- 启动信息 -->
+  <group>
+    <log message="========================================"/>
+    <log message="🔌 统一串口管理节点调试模式"/>
+    <log message="========================================"/>
+    <log message="串口设备: $(var serial_port)"/>
+    <log message="波特率: $(var baud_rate)"/>
+    <log message="配置文件: $(var config_file)"/>
+    <log message="日志级别: $(var log_level)"/>
+    <log message=""/>
+    <log message="📊 监控话题:"/>
+    <log message="  里程计数据: ros2 topic echo /wheel/odom"/>
+    <log message="  云台角度: ros2 topic echo /gimbal/current_angle"/>
+    <log message=""/>
+    <log message="🎮 控制话题:"/>
+    <log message="  底盘速度: ros2 topic pub /cmd_vel geometry_msgs/msg/Twist ..."/>
+    <log message="  云台角度: ros2 topic pub /gimbal/angle_cmd geometry_msgs/msg/Vector3 ..."/>
+    <log message=""/>
+    <log message="🔧 调试命令:"/>
+    <log message="  查看话题: ros2 topic list"/>
+    <log message="  查看节点: ros2 node info /unified_serial_manager"/>
+    <log message="  查看参数: ros2 param list /unified_serial_manager"/>
+    <log message="========================================"/>
+  </group>
+  
+</launch>

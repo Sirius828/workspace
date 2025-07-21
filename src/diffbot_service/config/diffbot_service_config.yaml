@@ -1,0 +1,28 @@
+diffbot_service:
+  ros__parameters:
+    # 订阅话题配置
+    odom_topic: "/diff_drive_controller/odom"
+    number_topic: "/number"
+    
+    # 发布话题配置
+    goal_pose_topic: "/goal_pose"
+    
+    # 运动参数配置
+    first_move_x: 0.05    # 第一次移动的X坐标
+    second_move_x: 0.2    # 第二次移动的X坐标
+    
+    # 圆形轨迹参数
+    circle_interpolation_points: 360   # 圆形轨迹插值点数量 (360/36 = 10度间隔)
+    circle_direction: "counterclockwise"     # 圆形方向: "clockwise" 或 "counterclockwise"
+    
+    # 控制参数
+    position_tolerance: 0.02          # 位置到达容差 (m)
+    angle_tolerance: 1.0           # 角度到达容差 (rad, 约5度)
+    movement_timeout: 30.0           # 单个动作超时时间 (s)
+    
+    # 等待参数
+    number_wait_timeout: 60.0        # 等待/number话题超时时间 (s)
+    
+    # 调试选项
+    debug_mode: true                 # 是否输出详细调试信息
+    publish_trajectory_markers: false # 是否发布轨迹标记用于可视化

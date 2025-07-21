@@ -1,0 +1,34 @@
+hardware_interface:
+  ros__parameters:
+    # 仿真模式控制
+    simulation_mode: false       # true=仿真模式, false=实际硬件模式
+
+    # 硬件参数
+    device_path: "/dev/ttyCH341USB0"
+    baud_rate: 115200
+    
+    # 编码器参数
+    enc_ticks_per_rev: 8192.0
+    gear_ratio: 36.0
+    
+    # 机械参数
+    wheel_radius: 0.035      # 轮半径 (m)
+    wheel_separation: 0.18   # 轮间距 (m)
+    
+    # 关节配置
+    joints:
+      - name: left_wheel_joint
+        type: wheel
+        command_interfaces:
+          - velocity
+        state_interfaces:
+          - position
+          - velocity
+      
+      - name: right_wheel_joint
+        type: wheel
+        command_interfaces:
+          - velocity
+        state_interfaces:
+          - position
+          - velocity

@@ -1,0 +1,12 @@
+pixel2gimbal:
+  ros__parameters:
+    src_pixels: [523.0, 238.0, 799.0, 242.0, 806.0, 517.0, 523.0, 523.0] # TL TR BR BL
+    dst_angles: [-0.1535890, 0.1518436, 0.1884956, 0.1518436, 0.2094395, -0.1867502, -0.1570796, -0.1902409]  # TL, TR, BR, BL
+    model: homography
+    pixel_topic: /roi_center
+    camera_info_topic: /camera_info
+    gimbal_cmd_topic: /gimbal_cmd
+    lowpass_alpha: 0.2
+
+
+

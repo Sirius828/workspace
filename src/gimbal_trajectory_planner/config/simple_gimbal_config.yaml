@@ -1,0 +1,43 @@
+simple_gimbal_node:
+  ros__parameters:
+    # ---------- 基础话题配置 ----------
+    input_topic: "/target_position"           # 输入目标位置话题 (geometry_msgs/Point)
+    corner_points_topic: "/corner_points"     # 角点坐标话题 (geometry_msgs/Point32)
+    midline_points_topic: "/midline_points"   # 中线点坐标话题 (geometry_msgs/Point32)
+    joint_states_topic: "/gimbal_joint_states" # 关节状态发布话题
+    publish_to_simulation: true               # 是否同时发布到/joint_states供仿真使用
+    
+    # ---------- 坐标转换配置 ----------
+    use_camera_info: false                    # 是否使用相机内参进行转换
+    
+    # FOV 方法参数 (当 use_camera_info=false 时使用)
+    fov_horizontal: 90.0                      # 水平视场角 (度)
+    fov_vertical: 65.0                        # 垂直视场角 (度)
+    image_width: 1280                         # 图像宽度 (像素)
+    image_height: 720                         # 图像高度 (像素)
+    
+    # 相机内参方法参数 (当 use_camera_info=true 时使用)
+    camera_fx: 554.254                        # 相机焦距 fx
+    camera_fy: 554.254                        # 相机焦距 fy
+    camera_cx: 640.0                          # 光心 cx
+    camera_cy: 360.0                          # 光心 cy
+    
+    # ---------- 云台角度限制 ----------
+    yaw_min: -180.0                           # 偏航角最小值 (度)
+    yaw_max: 180.0                            # 偏航角最大值 (度)
+    pitch_min: -45.0                          # 俯仰角最小值 (度)
+    pitch_max: 45.0                           # 俯仰角最大值 (度)
+    
+    # ---------- 轨迹插值配置 ----------
+    trajectory_enabled: true                  # 是否启用轨迹插值
+    trajectory_frequency: 50.0                # 轨迹更新频率 (Hz)
+    trajectory_buffer_size: 20                # 轨迹点缓存大小
+    smoothing_factor: 0.2                     # 平滑因子 (0-1)，越小越平滑
+    interpolation_steps: 5                    # 插值步数
+    
+    # ---------- 模式控制 ----------
+    corner_mode_enabled: false                # 是否启用角点模式
+    
+    # ---------- 调试配置 ----------
+    debug_mode: true                          # 是否启用调试模式
+    log_angles: false                         # 是否记录每个角度信息 (建议关闭以减少日志)

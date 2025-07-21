@@ -1,0 +1,6 @@
+# SquareLoop service - 识别正方形框并发布四个角点坐标
+# 请求为空
+---
+bool success
+string message
+geometry_msgs/Point32[] corner_points

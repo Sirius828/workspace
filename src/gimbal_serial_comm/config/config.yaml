@@ -1,0 +1,8 @@
+gimbal_serial_comm:
+  ros__parameters:
+    topic_name: '/gimbal_joint_states'
+    yaw_joint_name: 'gimbal_yaw_joint'
+    pitch_joint_name: 'gimbal_pitch_joint'
+    serial_port: '/dev/ttyACM0'    # 根据实际设备修改
+    baudrate: 115200
+    send_frequency: 1000.0         # 发送频率 (Hz) - 600Hz 高频发送

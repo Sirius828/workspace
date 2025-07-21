@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- pygame键盘遥控节点 -->
+    <node pkg="keyboard_teleop" exec="pygame_keyboard_teleop_node" name="pygame_keyboard_teleop_node" output="screen">
+        <param from="$(find-pkg-share keyboard_teleop)/config/keyboard_teleop_config.yaml"/>
+    </node>
+</launch>

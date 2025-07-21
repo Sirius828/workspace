@@ -1,0 +1,149 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ti_diffbot">
+
+  <xacro:arg name="use_sim_time" default="false"/>
+  <xacro:arg name="simulation_mode" default="false"/>
+
+  <!-- 机器人尺寸参数 -->
+  <xacro:property name="base_width" value="0.15"/>
+  <xacro:property name="base_length" value="0.20"/>
+  <xacro:property name="base_height" value="0.08"/>
+  
+  <xacro:property name="wheel_radius" value="0.035"/>
+  <xacro:property name="wheel_width" value="0.02"/>
+  <xacro:property name="wheel_separation" value="0.18"/>
+  
+  <!-- 材质定义 -->
+  <material name="blue">
+    <color rgba="0.0 0.0 0.8 1.0"/>
+  </material>
+  
+  <material name="black">
+    <color rgba="0.0 0.0 0.0 1.0"/>
+  </material>
+  
+  <material name="white">
+    <color rgba="1.0 1.0 1.0 1.0"/>
+  </material>
+
+  <!-- 基础坐标系 -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.0083" ixy="0.0" ixz="0.0"
+               iyy="0.0083" iyz="0.0"
+               izz="0.0083"/>
+    </inertial>
+  </link>
+
+  <!-- 左轮 -->
+  <link name="left_wheel_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0"
+               iyy="0.0001" iyz="0.0"
+               izz="0.0001"/>
+    </inertial>
+  </link>
+
+  <!-- 右轮 -->
+  <link name="right_wheel_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" ixy="0.0" ixz="0.0"
+               iyy="0.0001" iyz="0.0"
+               izz="0.0001"/>
+    </inertial>
+  </link>
+
+  <!-- 左轮关节 -->
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_wheel_link"/>
+    <origin xyz="0 ${wheel_separation/2} ${wheel_radius}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- 右轮关节 -->
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_wheel_link"/>
+    <origin xyz="0 ${-wheel_separation/2} ${wheel_radius}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- ros2_control 硬件接口 -->
+  <ros2_control name="ti_diffbot_hardware" type="system">
+    <hardware>
+      <plugin>ti_diffbot_hardware/TiDiffBotHardware</plugin>
+      <param name="device_path">/dev/ttyCH341USB0</param>
+      <param name="baud_rate">115200</param>
+      <param name="enc_ticks_per_rev">8192.0</param>
+      <param name="gear_ratio">36.0</param>
+      <param name="wheel_radius">0.035</param>
+      <param name="wheel_separation">0.18</param>
+      <param name="simulation_mode">$(arg simulation_mode)</param>
+    </hardware>
+    
+    <joint name="left_wheel_joint">
+      <command_interface name="velocity">
+        <param name="min">-10</param>
+        <param name="max">10</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    
+    <joint name="right_wheel_joint">
+      <command_interface name="velocity">
+        <param name="min">-10</param>
+        <param name="max">10</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+</robot>

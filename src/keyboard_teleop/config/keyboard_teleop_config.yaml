@@ -1,0 +1,38 @@
+keyboard_teleop_node:
+  ros__parameters:
+    # 话题配置
+    cmd_vel_topic: "/diff_drive_controller/cmd_vel_unstamped"    # 发布的cmd_vel话题名称
+    
+    # 控制参数
+    step_size: 0.05              # 每次按键的速度步进 (m/s 或 rad/s)
+    max_linear_vel: 2.0          # 最大线速度 (m/s)
+    max_angular_vel: 2.0         # 最大角速度 (rad/s)
+    
+    # 发布配置
+    publish_rate: 10.0           # 速度发布频率 (Hz)
+    auto_stop_timeout: 1.0       # 无按键自动停止时间 (秒)
+
+simple_keyboard_teleop_node:
+  ros__parameters:
+    # 简化版本，参数固定在代码中
+    cmd_vel_topic: "/diff_drive_controller/cmd_vel_unstampedl"
+
+improved_keyboard_teleop_node:
+  ros__parameters:
+    cmd_vel_topic: "/diff_drive_controller/cmd_vel_unstamped"
+    step_size: 0.05
+    max_linear_vel: 2.0
+    max_angular_vel: 2.0
+    publish_rate: 10.0
+
+pygame_keyboard_teleop_node:
+  ros__parameters:
+    cmd_vel_topic: "/diff_drive_controller/cmd_vel_unstamped"
+    step_size: 0.05
+    max_linear_vel: 2.0
+    max_angular_vel: 2.0
+    publish_rate: 10.0
+
+reliable_keyboard_teleop_node:
+  ros__parameters:
+    cmd_vel_topic: "/diff_drive_controller/cmd_vel_unstamped"

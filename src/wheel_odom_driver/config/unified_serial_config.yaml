@@ -1,0 +1,19 @@
+# 统一串口管理节点配置文件
+unified_serial_manager:
+  ros__parameters:
+    # 串口配置
+    serial_port: "/dev/ttyTHS0"
+    baud_rate: 115200
+    timeout: 1.0
+    
+    # 里程计相关配置
+    odom_frame_id: "odom"
+    base_frame_id: "base_link"
+    publish_tf: true
+    
+    # 云台相关配置
+    publish_gimbal_feedback: true
+    
+    # 控制超时配置
+    cmd_vel_timeout: 2.0      # cmd_vel超时时间(秒)
+    gimbal_cmd_timeout: 5.0   # 云台命令超时时间(秒)

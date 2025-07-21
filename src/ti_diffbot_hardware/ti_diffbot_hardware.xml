@@ -1,0 +1,10 @@
+<library path="ti_diffbot_hardware">
+  <class name="ti_diffbot_hardware/TiDiffBotHardware" 
+         type="ti_diffbot_hardware::TiDiffBotHardware" 
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Hardware interface for TI differential drive robot supporting serial communication.
+      Provides position and velocity control for left and right wheels.
+    </description>
+  </class>
+</library>

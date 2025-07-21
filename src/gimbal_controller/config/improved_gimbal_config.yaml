@@ -1,0 +1,31 @@
+improved_gimbal_controller:
+  ros__parameters:
+    # 图像参数
+    image_width: 640
+    image_height: 480
+    camera_horizontal_fov: 53.35  # 度
+    camera_vertical_fov: 41.30    # 度
+    use_camera_info: true
+    
+    # PID参数 - YAW轴
+    kp_yaw: 2.0      # 比例系数，调大增加响应速度
+    ki_yaw: 0.1      # 积分系数，消除稳态误差
+    kd_yaw: 0.5      # 微分系数，减少超调
+    
+    # PID参数 - PITCH轴
+    kp_pitch: 2.0    # 比例系数
+    ki_pitch: 0.1    # 积分系数
+    kd_pitch: 0.5    # 微分系数
+    
+    # 控制参数
+    dead_zone_pixels: 10      # 死区像素数
+    max_angle_step: 2.0       # 最大单步角度增量(度)
+    yaw_limit_min: -90.0      # YAW轴最小角度
+    yaw_limit_max: 90.0       # YAW轴最大角度
+    pitch_limit_min: -30.0    # PITCH轴最小角度
+    pitch_limit_max: 30.0     # PITCH轴最大角度
+    
+    # 串口参数
+    serial_port: "/dev/ttyTHS1"   # 串口设备
+    baud_rate: 115200             # 波特率
+    control_mode: "integrated"    # "integrated" 或 "separate"

@@ -1,0 +1,75 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 200  # Hz
+
+    # 硬件接口
+    hardware_interfaces:
+      - ti_diffbot_hardware
+
+    # 差速轮控制器
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+
+    # 关节状态广播器
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+# 差速轮控制器配置
+diff_drive_controller:
+  ros__parameters:
+    left_wheel_names: ["left_wheel_joint"]
+    right_wheel_names: ["right_wheel_joint"]
+    
+    wheel_separation: 0.1715
+    wheel_radius: 0.031
+    
+    wheel_separation_multiplier: 1.0
+    left_wheel_radius_multiplier: 1.0
+    right_wheel_radius_multiplier: 1.0
+    
+    publish_rate: 100.0
+    odom_frame_id: odom
+    base_frame_id: base_link
+    pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+    
+    open_loop: false
+    enable_odom_tf: true
+    
+    cmd_vel_timeout: 0.5
+    use_stamped_vel: false
+    
+    velocity_rolling_window_size: 10
+    
+    # 速度限制
+    linear:
+      x:
+        has_velocity_limits: true
+        has_acceleration_limits: true
+        has_jerk_limits: false
+        max_velocity: 1.0
+        min_velocity: -1.0
+        max_acceleration: 1.0
+        max_jerk: 0.0
+        min_jerk: 0.0
+    
+    angular:
+      z:
+        has_velocity_limits: true
+        has_acceleration_limits: true
+        has_jerk_limits: false
+        max_velocity: 1.0
+        min_velocity: -1.0
+        max_acceleration: 1.0
+        max_jerk: 0.0
+        min_jerk: 0.0
+
+# 关节状态广播器配置
+joint_state_broadcaster:
+  ros__parameters:
+    joints:
+      - left_wheel_joint
+      - right_wheel_joint
+    interfaces:
+      - position
+      - velocity

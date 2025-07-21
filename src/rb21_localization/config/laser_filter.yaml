@@ -1,0 +1,8 @@
+scan_to_scan_filter_chain:
+  ros__parameters:
+    filter1:
+      name: keep_front_190
+      type: laser_filters/LaserScanAngularBoundsFilterInPlace
+      params:
+        lower_angle: -1.6581    # -95 °
+        upper_angle:  1.6581    # +95 °

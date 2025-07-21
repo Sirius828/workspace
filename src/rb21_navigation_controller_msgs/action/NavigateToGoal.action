@@ -1,0 +1,18 @@
+# Goal: Target position for navigation
+geometry_msgs/Point target_position
+float32 tolerance
+float32 max_linear_speed
+float32 max_angular_speed
+---
+# Result: Whether navigation was successful
+bool success
+string message
+geometry_msgs/Point final_position
+float32 distance_error
+---
+# Feedback: Current progress
+geometry_msgs/Point current_position
+float32 distance_to_goal
+float32 current_linear_speed
+float32 current_angular_speed
+string status
