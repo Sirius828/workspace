@@ -8,16 +8,16 @@ diffbot_service:
     goal_pose_topic: "/goal_pose"
     
     # 运动参数配置
-    first_move_x: 0.05    # 第一次移动的X坐标
-    second_move_x: 0.2    # 第二次移动的X坐标
+    first_move_x: 0.11    # 第一次移动的X坐标
+    second_move_x: 0.31    # 第二次移动的X坐标
     
     # 圆形轨迹参数
-    circle_interpolation_points: 360   # 圆形轨迹插值点数量 (360/36 = 10度间隔)
+    circle_interpolation_points: 36   # 圆形轨迹插值点数量 (360/36 = 10度间隔)
     circle_direction: "counterclockwise"     # 圆形方向: "clockwise" 或 "counterclockwise"
     
     # 控制参数
     position_tolerance: 0.02          # 位置到达容差 (m)
-    angle_tolerance: 1.0           # 角度到达容差 (rad, 约5度)
+    angle_tolerance: 0.5           # 角度到达容差 (rad, 约5度)
     movement_timeout: 30.0           # 单个动作超时时间 (s)
     
     # 等待参数

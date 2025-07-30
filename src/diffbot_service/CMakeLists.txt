@@ -56,6 +56,7 @@ install(
   PROGRAMS
     scripts/publish_number.py
     scripts/call_start_service.py
+    scripts/diffbot_gui_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

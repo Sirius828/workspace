@@ -92,7 +92,7 @@ class NumberDetectorNode(Node):
         # QoS配置
         qos = QoSProfile(
             depth=1,
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            reliability=QoSReliabilityPolicy.RELIABLE,
             durability=QoSDurabilityPolicy.VOLATILE
         )
         

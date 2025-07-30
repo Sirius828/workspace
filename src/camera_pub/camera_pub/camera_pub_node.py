@@ -19,6 +19,7 @@ class CameraPublisher(Node):
         self.cap = cv2.VideoCapture(device,cv2.CAP_V4L2)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_FPS, 400)
         # pipeline = (
         #     f"v4l2src device={device} ! "
         #     "video/x-raw,format=MJPG,width=640,height=480,framerate=120/1 ! "
@@ -28,21 +29,21 @@ class CameraPublisher(Node):
         if not self.cap.isOpened():
             self.get_logger().error(f'无法打开摄像头: {device}')
             raise RuntimeError('Camera open failed')
-        cv2.namedWindow('camera_preview', cv2.WINDOW_NORMAL)
+        # cv2.namedWindow('camera_preview', cv2.WINDOW_NORMAL)
 
         self.pub = self.create_publisher(Image, topic, 10)
         self.bridge = CvBridge()
-        # 定时器：按 30Hz 读取并发布
-        timer_period = 1.0 / 30.0
+        # 定时器：按 400Hz 读取并发布
+        timer_period = 1.0 / 400
         self.timer = self.create_timer(timer_period, self.timer_callback)
-        self.get_logger().info(f'Publishing images from {device} on "{topic}" at 30 Hz')
+        self.get_logger().info(f'Publishing images from {device} on "{topic}" at 400 Hz')
 
     def timer_callback(self):
         ret, frame = self.cap.read()
         if not ret:
             self.get_logger().warning('读取摄像头帧失败')
             return
-        cv2.imshow('camera_preview', frame)
+        # cv2.imshow('camera_preview', frame)
         cv2.waitKey(1)
         # 转成 ROS Image 并发布
         msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')

@@ -1,0 +1,63 @@
+gimbal_pixel_controller:
+  ros__parameters:
+    # 图像参数
+    image_width: 640
+    image_height: 480
+    target_pixel_x: 320.0  # 图像中心x坐标
+    target_pixel_y: 240.0  # 图像中心y坐标
+    
+    # YAW轴模糊PID基础参数（左右转动）
+    # 注意：这些是基础PID参数，实际使用时会被模糊逻辑动态调整
+    yaw_kp: 0.05      # 减小基础比例增益，避免静止抖动
+    yaw_ki: 0.000     # 基础积分增益，减少稳态误差
+    yaw_kd: 0.01      # 减小基础微分增益，减少噪声敏感性
+    
+    # PITCH轴模糊PID基础参数（上下转动）
+    pitch_kp: 0.05    # 减小基础比例增益
+    pitch_ki: 0.0000  # 基础积分增益
+    pitch_kd: 0.01    # 减小基础微分增益
+    
+    # 模糊逻辑参数配置
+    # 误差范围定义（归一化值）- 调整死区以减少抖动
+    fuzzy_error_small: 0.05     # 减小小误差阈值，增加死区
+    fuzzy_error_medium: 0.2     # 减小中等误差阈值
+    fuzzy_error_large: 0.8      # 减小大误差阈值
+    
+    # 误差变化率范围定义（归一化值）
+    fuzzy_derror_small: 0.02    # 减小小误差变化率阈值，降低噪声敏感性
+    fuzzy_derror_medium: 0.1    # 减小中等误差变化率阈值
+    fuzzy_derror_large: 0.3     # 减小大误差变化率阈值
+    
+    # Kp调整系数矩阵 - 优化以减少抖动
+    fuzzy_kp_rules:
+      error_small:  [0.8, 0.9, 1.0]   # 小误差时降低Kp以减少抖动
+      error_medium: [1.0, 1.1, 1.2]   # 中等误差时适中调整
+      error_large:  [1.3, 1.4, 1.5]   # 大误差时增大Kp快速响应
+    
+    # Ki调整系数矩阵 - 保持较低以避免积分饱和
+    fuzzy_ki_rules:
+      error_small:  [0.5, 0.6, 0.7]   # 小误差时大幅降低Ki
+      error_medium: [0.8, 0.9, 1.0]   # 中等误差时适中调整
+      error_large:  [1.0, 1.1, 1.2]   # 大误差时适当增加Ki
+    
+    # Kd调整系数矩阵 - 优化微分项以平衡响应和稳定性
+    fuzzy_kd_rules:
+      error_small:  [0.5, 0.7, 0.9]   # 小误差时降低Kd减少噪声放大
+      error_medium: [0.8, 1.0, 1.2]   # 中等误差时适中调整
+      error_large:  [1.0, 1.3, 1.5]   # 大误差时增大Kd增强阻尼
+    
+    # 控制限制 - 优化以减少抖动
+    max_angle_change: 0.02   # 减小单次最大角度变化，防止突变
+    min_confidence: 0.8      # 提高最小置信度阈值，过滤不稳定检测
+    control_timeout: 2.0     # 增加控制超时时间，避免频繁切换
+    
+    # 抖动抑制参数
+    deadzone_pixel: 3.0      # 像素死区，小于此值不响应（减少微小抖动）
+    filter_alpha: 0.7        # 低通滤波器系数 (0-1)，越大越平滑
+    min_movement_threshold: 0.001  # 最小运动阈值（弧度），避免无效微小运动
+    
+    # 云台角度限制（弧度）
+    yaw_min: -1.57     # -90度
+    yaw_max: 1.57      # +90度
+    pitch_min: -0.52   # -30度
+    pitch_max: 0.52    # +30度

@@ -18,6 +18,9 @@ enum class State {
     MOVE_TO_CIRCLE_START,
     ROTATE_COUNTERCLOCKWISE,
     EXECUTE_CIRCLE_TRAJECTORY,
+    RETURN_TO_ORIGIN_ORIENTATION,
+    RETURN_TO_ORIGIN_POSITION,
+    RETURN_TO_FINAL_ORIENTATION,
     COMPLETED
 };
 
@@ -36,11 +39,18 @@ public:
         this->declare_parameter("second_move_x", 0.2);
         this->declare_parameter("circle_interpolation_points", 50);
         this->declare_parameter("position_tolerance", 0.05);
-        this->declare_parameter("angle_tolerance", 0.1);
-        this->declare_parameter("linear_kp", 1.0);
-        this->declare_parameter("angular_kp", 1.0);
-        this->declare_parameter("max_linear_vel", 0.3);
-        this->declare_parameter("max_angular_vel", 0.8);
+        
+        // 旋转控制专用参数（独立于导航系统）
+        this->declare_parameter("rotation_angle_tolerance", 0.05);  // 约3度，旋转精度要求高
+        this->declare_parameter("rotation_angular_kp", 1.5);        // 旋转专用增益，响应更快
+        this->declare_parameter("rotation_max_angular_vel", 1.0);   // 旋转最大角速度，更平稳
+        
+        // 导航参数（与simple_navigation保持一致）
+        this->declare_parameter("linear_kp", 0.3);
+        this->declare_parameter("angular_kp", 0.3);
+        this->declare_parameter("max_linear_vel", 0.2);
+        this->declare_parameter("max_angular_vel", 0.5);
+        this->declare_parameter("angle_tolerance", 0.1);            // 导航角度容差，可以宽松一些
         
         // 读取参数
         odom_topic_ = this->get_parameter("odom_topic").as_string();
@@ -54,6 +64,11 @@ public:
         max_linear_vel_ = this->get_parameter("max_linear_vel").as_double();
         max_angular_vel_ = this->get_parameter("max_angular_vel").as_double();
         
+        // 旋转专用参数
+        rotation_angle_tolerance_ = this->get_parameter("rotation_angle_tolerance").as_double();
+        rotation_angular_kp_ = this->get_parameter("rotation_angular_kp").as_double();
+        rotation_max_angular_vel_ = this->get_parameter("rotation_max_angular_vel").as_double();
+        
         // 初始化订阅者
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             odom_topic_, 10,
@@ -65,6 +80,7 @@ public:
         
         // 初始化发布者
         goal_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
+        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/diff_drive_controller/cmd_vel_unstamped", 10);
         
         // 初始化服务
         start_service_ = this->create_service<std_srvs::srv::Trigger>(
@@ -85,7 +101,7 @@ public:
         
         RCLCPP_INFO(this->get_logger(), "DiffBot Service 节点已启动");
         RCLCPP_INFO(this->get_logger(), "订阅话题: %s, /number", odom_topic_.c_str());
-        RCLCPP_INFO(this->get_logger(), "发布话题: /goal_pose");
+        RCLCPP_INFO(this->get_logger(), "发布话题: /goal_pose, /diff_drive_controller/cmd_vel");
         RCLCPP_INFO(this->get_logger(), "服务: /start");
         RCLCPP_INFO(this->get_logger(), "配置: 第一次移动x=%.3f, 第二次移动x=%.3f, 圆形插值点=%d", 
                    first_move_x_, second_move_x_, circle_points_);
@@ -182,8 +198,30 @@ private:
                 handle_execute_circle_trajectory();
                 break;
                 
+            case State::RETURN_TO_ORIGIN_ORIENTATION:
+                handle_return_to_origin_orientation();
+                break;
+                
+            case State::RETURN_TO_ORIGIN_POSITION:
+                handle_return_to_origin_position();
+                break;
+                
+            case State::RETURN_TO_FINAL_ORIENTATION:
+                handle_return_to_final_orientation();
+                break;
+                
             case State::COMPLETED:
-                // 任务完成
+                // 任务完成，持续发送停止命令确保机器人保持静止
+                {
+                    geometry_msgs::msg::Twist stop_cmd;
+                    stop_cmd.linear.x = 0.0;
+                    stop_cmd.linear.y = 0.0;
+                    stop_cmd.linear.z = 0.0;
+                    stop_cmd.angular.x = 0.0;
+                    stop_cmd.angular.y = 0.0;
+                    stop_cmd.angular.z = 0.0;
+                    cmd_vel_pub_->publish(stop_cmd);
+                }
                 break;
         }
     }
@@ -219,6 +257,11 @@ private:
             RCLCPP_INFO(this->get_logger(), "收到半径数据，继续下一步");
             current_state_ = State::MOVE_TO_SECOND_POSITION;
         }
+        // 在等待期间持续发送零速度，保持串口数据刷新
+        geometry_msgs::msg::Twist cmd_vel;
+        cmd_vel.linear.x = 0.0;
+        cmd_vel.angular.z = 0.0;
+        cmd_vel_pub_->publish(cmd_vel);
         // 在等待期间停止发布目标
     }
     
@@ -249,36 +292,67 @@ private:
     
     void handle_rotate_clockwise()
     {
-        // 顺时针旋转90度
+        // 顺时针旋转90度（修正方向）
         double current_yaw = get_yaw(current_pose_.orientation);
-        double target_yaw = get_yaw(start_pose_.orientation) - M_PI/2;  // 顺时针90度
+        // 顺时针旋转90度
+        double target_yaw = normalize_angle(get_yaw(start_pose_.orientation) - M_PI/2);
+        target_yaw = normalize_angle(target_yaw);
         
-        geometry_msgs::msg::PoseStamped goal;
-        goal.header.frame_id = "odom";
-        goal.header.stamp = this->get_clock()->now();
-        goal.pose.position = current_pose_.position;  // 保持当前位置
-        goal.pose.orientation = create_quaternion_from_yaw(target_yaw);
+        // 计算角度误差
+        double yaw_error = normalize_angle(target_yaw - current_yaw);
         
-        goal_pub_->publish(goal);
+        // 停止发布导航目标，避免simple_navigation干扰
+        // 不发布任何PoseStamped消息
         
         // 检查是否到达目标朝向
-        double yaw_error = normalize_angle(target_yaw - current_yaw);
-        if (fabs(yaw_error) < angle_tolerance_) {
+        if (fabs(yaw_error) < rotation_angle_tolerance_) {
+            // 停止旋转
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;
+            cmd_vel.angular.z = 0.0;
+            cmd_vel_pub_->publish(cmd_vel);
+            
             RCLCPP_INFO(this->get_logger(), "完成顺时针旋转90度");
             current_state_ = State::MOVE_TO_CIRCLE_START;
+        } else {
+            // 原地旋转控制
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;  // 不进行平移
+            
+            // 修正旋转方向：直接使用误差符号来确定旋转方向
+            // 如果误差为正，需要逆时针转动；如果误差为负，需要顺时针转动
+            cmd_vel.angular.z = rotation_angular_kp_ * yaw_error;
+            
+            // 限制角速度
+            if (cmd_vel.angular.z > rotation_max_angular_vel_) {
+                cmd_vel.angular.z = rotation_max_angular_vel_;
+            } else if (cmd_vel.angular.z < -rotation_max_angular_vel_) {
+                cmd_vel.angular.z = -rotation_max_angular_vel_;
+            }
+            
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            // 每隔一段时间打印调试信息
+            static auto last_print = this->get_clock()->now();
+            auto now = this->get_clock()->now();
+            if ((now - last_print).seconds() > 1.0) {
+                RCLCPP_INFO(this->get_logger(), "顺时针旋转中... 当前: %.1f°, 目标: %.1f°, 误差: %.1f°, 角速度: %.3f",
+                           current_yaw * 180.0 / M_PI, target_yaw * 180.0 / M_PI, yaw_error * 180.0 / M_PI, cmd_vel.angular.z);
+                last_print = now;
+            }
         }
     }
     
     void handle_move_to_circle_start()
     {
-        // 移动到 (current_x, current_y + radius)
-        double radius_m = radius_cm_ / 100.0;
+        // 移动到 (0.2, -radius) 相对于起始位置
+        double radius_m = radius_cm_ / 100.0;  // 将厘米转换为米
         
         geometry_msgs::msg::PoseStamped goal;
         goal.header.frame_id = "odom";
         goal.header.stamp = this->get_clock()->now();
-        goal.pose.position.x = current_pose_.position.x;
-        goal.pose.position.y = current_pose_.position.y + radius_m;
+        goal.pose.position.x = start_pose_.position.x + second_move_x_;  // 使用0.2m（second_move_x参数）
+        goal.pose.position.y = start_pose_.position.y - radius_m;        // 向右移动半径（米为单位）
         goal.pose.position.z = 0.0;
         goal.pose.orientation = current_pose_.orientation;  // 保持当前朝向
         
@@ -292,8 +366,9 @@ private:
         if (distance < position_tolerance_) {
             RCLCPP_INFO(this->get_logger(), "到达圆形起始位置: (%.3f, %.3f)", 
                        current_pose_.position.x, current_pose_.position.y);
-            circle_center_x_ = current_pose_.position.x;
-            circle_center_y_ = current_pose_.position.y - radius_m;  // 圆心在下方
+            // 圆心位置：(0.2, 0) 相对于起始位置
+            circle_center_x_ = start_pose_.position.x + second_move_x_;  // X坐标为0.2m
+            circle_center_y_ = start_pose_.position.y;                   // Y坐标为起始位置的Y
             current_state_ = State::ROTATE_COUNTERCLOCKWISE;
         }
     }
@@ -303,30 +378,65 @@ private:
         // 逆时针旋转90度
         double current_yaw = get_yaw(current_pose_.orientation);
         double target_yaw = get_yaw(start_pose_.orientation);  // 回到原始朝向
+        target_yaw = normalize_angle(target_yaw);
         
-        geometry_msgs::msg::PoseStamped goal;
-        goal.header.frame_id = "odom";
-        goal.header.stamp = this->get_clock()->now();
-        goal.pose.position = current_pose_.position;  // 保持当前位置
-        goal.pose.orientation = create_quaternion_from_yaw(target_yaw);
+        // 计算角度误差
+        double yaw_error = normalize_angle(target_yaw - current_yaw);
         
-        goal_pub_->publish(goal);
+        // 停止发布导航目标，避免simple_navigation干扰
+        // 不发布任何PoseStamped消息
         
         // 检查是否到达目标朝向
-        double yaw_error = normalize_angle(target_yaw - current_yaw);
-        if (fabs(yaw_error) < angle_tolerance_) {
+        if (fabs(yaw_error) < rotation_angle_tolerance_) {
+            // 停止旋转
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;
+            cmd_vel.angular.z = 0.0;
+            cmd_vel_pub_->publish(cmd_vel);
+            
             RCLCPP_INFO(this->get_logger(), "完成逆时针旋转90度，开始生成圆形轨迹");
             generate_circle_trajectory();
             current_trajectory_point_ = 0;
             current_state_ = State::EXECUTE_CIRCLE_TRAJECTORY;
+        } else {
+            // 原地旋转控制
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;  // 不进行平移
+            
+            // 直接使用误差符号来确定旋转方向
+            cmd_vel.angular.z = rotation_angular_kp_ * yaw_error;
+            
+            // 限制角速度
+            if (cmd_vel.angular.z > rotation_max_angular_vel_) {
+                cmd_vel.angular.z = rotation_max_angular_vel_;
+            } else if (cmd_vel.angular.z < -rotation_max_angular_vel_) {
+                cmd_vel.angular.z = -rotation_max_angular_vel_;
+            }
+            
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            // 每隔一段时间打印调试信息
+            static auto last_print = this->get_clock()->now();
+            auto now = this->get_clock()->now();
+            if ((now - last_print).seconds() > 1.0) {
+                RCLCPP_INFO(this->get_logger(), "逆时针旋转中... 当前: %.1f°, 目标: %.1f°, 误差: %.1f°, 角速度: %.3f",
+                           current_yaw * 180.0 / M_PI, target_yaw * 180.0 / M_PI, yaw_error * 180.0 / M_PI, cmd_vel.angular.z);
+                last_print = now;
+            }
         }
     }
     
     void handle_execute_circle_trajectory()
     {
         if (current_trajectory_point_ >= circle_trajectory_.size()) {
-            RCLCPP_INFO(this->get_logger(), "圆形轨迹执行完成！");
-            current_state_ = State::COMPLETED;
+            // 停止所有运动
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;
+            cmd_vel.angular.z = 0.0;
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            RCLCPP_INFO(this->get_logger(), "圆形轨迹执行完成！开始返回起点");
+            current_state_ = State::RETURN_TO_ORIGIN_ORIENTATION;
             return;
         }
         
@@ -361,26 +471,160 @@ private:
     void generate_circle_trajectory()
     {
         circle_trajectory_.clear();
-        double radius_m = radius_cm_ / 100.0;
-        
-        // 生成圆形轨迹点
+        // 从当前位置开始绘制逆时针圆，使用输入半径并计算起始角度
+        double radius_m = radius_cm_ / 100.0;  // 固定半径由用户输入
+        double dx_center = current_pose_.position.x - circle_center_x_;
+        double dy_center = current_pose_.position.y - circle_center_y_;
+        double start_angle = std::atan2(dy_center, dx_center);
+
+        // 生成逆时针圆形轨迹点
         for (int i = 0; i < circle_points_; ++i) {
-            double angle = 2.0 * M_PI * i / circle_points_;
-            
+            double angle = start_angle + 2.0 * M_PI * i / circle_points_;
             TrajectoryPoint point;
-            point.x = circle_center_x_ + radius_m * cos(angle);
-            point.y = circle_center_y_ + radius_m * sin(angle);
-            
-            // 计算切线方向作为朝向
-            point.yaw = angle + M_PI/2;  // 切线方向
-            point.yaw = normalize_angle(point.yaw);
-            
+            point.x = circle_center_x_ + radius_m * std::cos(angle);
+            point.y = circle_center_y_ + radius_m * std::sin(angle);
+            // 计算切线方向（逆时针切线）
+            point.yaw = normalize_angle(angle + M_PI/2);
             circle_trajectory_.push_back(point);
         }
+
+        RCLCPP_INFO(this->get_logger(),
+                   "生成逆时针圆形轨迹：半径=%.3f m, 圆心=(%.3f, %.3f), 起始点=(%.3f, %.3f), 点数=%zu",
+                   radius_m, circle_center_x_, circle_center_y_,
+                   circle_trajectory_[0].x, circle_trajectory_[0].y,
+                   circle_trajectory_.size());
+    }
+    
+    void handle_return_to_origin_orientation()
+    {
+        // 第一步：使用cmd_vel转向面向起点(0,0)
+        double dx_to_origin = start_pose_.position.x - current_pose_.position.x;
+        double dy_to_origin = start_pose_.position.y - current_pose_.position.y;
+        double target_yaw = std::atan2(dy_to_origin, dx_to_origin);
         
-        RCLCPP_INFO(this->get_logger(), 
-                   "生成圆形轨迹：半径=%.1fcm, 圆心=(%.3f, %.3f), 轨迹点数=%zu",
-                   radius_cm_, circle_center_x_, circle_center_y_, circle_trajectory_.size());
+        double current_yaw = get_yaw(current_pose_.orientation);
+        double yaw_error = normalize_angle(target_yaw - current_yaw);
+        
+        // 停止发布导航目标，使用cmd_vel进行原地旋转
+        // 不发布任何PoseStamped消息
+        
+        // 检查是否到达目标朝向
+        if (fabs(yaw_error) < rotation_angle_tolerance_) {
+            // 停止旋转
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;
+            cmd_vel.angular.z = 0.0;
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            RCLCPP_INFO(this->get_logger(), "已调整朝向面向起点(%.1f°)，开始移动到起点", 
+                       target_yaw * 180.0 / M_PI);
+            current_state_ = State::RETURN_TO_ORIGIN_POSITION;
+        } else {
+            // 使用cmd_vel进行原地旋转控制
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;  // 不进行平移
+            cmd_vel.angular.z = rotation_angular_kp_ * yaw_error;
+            
+            // 限制角速度
+            if (cmd_vel.angular.z > rotation_max_angular_vel_) {
+                cmd_vel.angular.z = rotation_max_angular_vel_;
+            } else if (cmd_vel.angular.z < -rotation_max_angular_vel_) {
+                cmd_vel.angular.z = -rotation_max_angular_vel_;
+            }
+            
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            // 每隔一段时间打印调试信息
+            static auto last_print = this->get_clock()->now();
+            auto now = this->get_clock()->now();
+            if ((now - last_print).seconds() > 1.0) {
+                RCLCPP_INFO(this->get_logger(), "调整面向起点... 当前: %.1f°, 目标: %.1f°, 误差: %.1f°, 角速度: %.3f",
+                           current_yaw * 180.0 / M_PI, target_yaw * 180.0 / M_PI, yaw_error * 180.0 / M_PI, cmd_vel.angular.z);
+                last_print = now;
+            }
+        }
+    }
+    
+    void handle_return_to_origin_position()
+    {
+        // 第二步：发送goal_pose移动到起点(0,0)
+        geometry_msgs::msg::PoseStamped goal;
+        goal.header.frame_id = "odom";
+        goal.header.stamp = this->get_clock()->now();
+        goal.pose.position.x = start_pose_.position.x;  // 回到起始位置的X坐标
+        goal.pose.position.y = start_pose_.position.y;  // 回到起始位置的Y坐标
+        goal.pose.position.z = 0.0;
+        goal.pose.orientation = current_pose_.orientation;  // 保持当前朝向
+        
+        goal_pub_->publish(goal);
+        
+        // 检查是否到达起点位置
+        double dx = goal.pose.position.x - current_pose_.position.x;
+        double dy = goal.pose.position.y - current_pose_.position.y;
+        double distance = sqrt(dx*dx + dy*dy);
+        
+        if (distance < position_tolerance_) {
+            // 停止导航目标发布
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;
+            cmd_vel.angular.z = 0.0;
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            RCLCPP_INFO(this->get_logger(), "已到达起点位置: (%.3f, %.3f)，开始调整朝向", 
+                       current_pose_.position.x, current_pose_.position.y);
+            current_state_ = State::RETURN_TO_FINAL_ORIENTATION;
+        }
+    }
+    
+    void handle_return_to_final_orientation()
+    {
+        // 第三步：使用cmd_vel调整朝向到初始朝向（面向上方）
+        double current_yaw = get_yaw(current_pose_.orientation);
+        double target_yaw = get_yaw(start_pose_.orientation);
+        
+        // 计算角度误差
+        double yaw_error = normalize_angle(target_yaw - current_yaw);
+        
+        // 停止发布导航目标，使用cmd_vel进行原地旋转
+        // 不发布任何PoseStamped消息
+        
+        // 检查是否到达目标朝向
+        if (fabs(yaw_error) < rotation_angle_tolerance_) {
+            // 停止旋转
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;
+            cmd_vel.angular.z = 0.0;
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            RCLCPP_INFO(this->get_logger(), "已完成朝向调整，返回起点任务完成！");
+            RCLCPP_INFO(this->get_logger(), "最终位置: (%.3f, %.3f, %.1f°)", 
+                       current_pose_.position.x, current_pose_.position.y,
+                       current_yaw * 180.0 / M_PI);
+            current_state_ = State::COMPLETED;
+        } else {
+            // 使用cmd_vel进行原地旋转控制
+            geometry_msgs::msg::Twist cmd_vel;
+            cmd_vel.linear.x = 0.0;  // 不进行平移
+            cmd_vel.angular.z = rotation_angular_kp_ * yaw_error;
+            
+            // 限制角速度
+            if (cmd_vel.angular.z > rotation_max_angular_vel_) {
+                cmd_vel.angular.z = rotation_max_angular_vel_;
+            } else if (cmd_vel.angular.z < -rotation_max_angular_vel_) {
+                cmd_vel.angular.z = -rotation_max_angular_vel_;
+            }
+            
+            cmd_vel_pub_->publish(cmd_vel);
+            
+            // 每隔一段时间打印调试信息
+            static auto last_print = this->get_clock()->now();
+            auto now = this->get_clock()->now();
+            if ((now - last_print).seconds() > 1.0) {
+                RCLCPP_INFO(this->get_logger(), "调整最终朝向... 当前: %.1f°, 目标: %.1f°, 误差: %.1f°, 角速度: %.3f",
+                           current_yaw * 180.0 / M_PI, target_yaw * 180.0 / M_PI, yaw_error * 180.0 / M_PI, cmd_vel.angular.z);
+                last_print = now;
+            }
+        }
     }
     
     double get_yaw(const geometry_msgs::msg::Quaternion& q)
@@ -410,6 +654,7 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr number_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_service_;
     rclcpp::TimerBase::SharedPtr timer_;
     
@@ -438,6 +683,11 @@ private:
     double angular_kp_;
     double max_linear_vel_;
     double max_angular_vel_;
+    
+    // 旋转专用参数
+    double rotation_angle_tolerance_;
+    double rotation_angular_kp_;
+    double rotation_max_angular_vel_;
 };
 
 int main(int argc, char** argv)

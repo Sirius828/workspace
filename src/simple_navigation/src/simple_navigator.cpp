@@ -43,9 +43,9 @@ public:
         cmd_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(
             "/diff_drive_controller/cmd_vel_unstamped", 10);
             
-        // 控制循环定时器 (20Hz)
+        // 控制循环定时器 (100Hz)
         timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(50),
+            std::chrono::milliseconds(10),
             std::bind(&SimpleNavigator::control_loop, this));
             
         RCLCPP_INFO(this->get_logger(), "简单导航器已启动");

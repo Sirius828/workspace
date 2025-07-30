@@ -91,7 +91,7 @@ class YoloDetectorNode(Node):
         # 订阅者和发布者
         self.image_sub = self.create_subscription(
             Image,
-            '/camera/image_rect',
+            '/camera/color/image_raw',
             self.image_callback,
             qos
         )

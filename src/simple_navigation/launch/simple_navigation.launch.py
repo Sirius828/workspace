@@ -13,37 +13,37 @@ def generate_launch_description():
         # 声明启动参数
         DeclareLaunchArgument(
             'linear_kp',
-            default_value='0.3',
+            default_value='2.0',
             description='线速度比例增益'
         ),
         
         DeclareLaunchArgument(
             'angular_kp', 
-            default_value='0.3',
+            default_value='2.0',
             description='角速度比例增益'
         ),
         
         DeclareLaunchArgument(
             'max_linear_vel',
-            default_value='0.3',
+            default_value='1.0',
             description='最大线速度 (m/s)'
         ),
         
         DeclareLaunchArgument(
             'max_angular_vel',
-            default_value='0.5', 
+            default_value='2.0', 
             description='最大角速度 (rad/s)'
         ),
         
         DeclareLaunchArgument(
             'position_tolerance',
-            default_value='0.007',
+            default_value='0.02',
             description='位置到达容差 (m)'
         ),
         
         DeclareLaunchArgument(
             'angle_tolerance',
-            default_value='1.0',
+            default_value='0.5',
             description='角度到达容差 (rad)'
         ),
         

@@ -10,21 +10,21 @@ def generate_launch_description():
     # YOLO模型文件参数
     yolo_model_arg = DeclareLaunchArgument(
         'yolo_model',
-        default_value='cars.engine',
+        default_value='sticker2_int8.engine',
         description='YOLO模型文件名 (支持格式: .engine, .pt, .onnx)'
     )
     
     # 检测置信度阈值参数
     yolo_confidence_arg = DeclareLaunchArgument(
         'yolo_confidence',
-        default_value='0.85',
+        default_value='0.77',
         description='YOLO检测置信度阈值 (范围: 0.0-1.0)'
     )
     
     # 目标检测类别参数
     yolo_target_class_arg = DeclareLaunchArgument(
         'yolo_target_class',
-        default_value='cars',
+        default_value='sticker',
         description='目标检测类别 (模型中的实际类别名称: ferrrari)'
     )
     

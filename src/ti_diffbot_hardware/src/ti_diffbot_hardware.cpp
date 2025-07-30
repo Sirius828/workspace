@@ -289,7 +289,9 @@ TiDiffBotHardware::on_deactivate(const rclcpp_lifecycle::State & /*previous_stat
     cmd_[0] = 0.0;
     cmd_[1] = 0.0;
     if (fd_ >= 0) {
-      write_line("0,0");  // 修改：发送整型格式的停止命令
+      std::string stop_cmd = "+00000,+00000";
+      write_line(stop_cmd);  // 修改：发送带符号五位数格式的停止命令
+      RCLCPP_INFO(LOGGER, "📤 停止命令下发: %s", stop_cmd.c_str());
     }
 
     // 关闭串口
@@ -399,8 +401,8 @@ TiDiffBotHardware::read(const rclcpp::Time & time, const rclcpp::Duration & peri
   
   data_count++;
   
-  // 每5秒报告一次数据接收统计
-  if ((time - last_stat_time).seconds() >= 5.0) {
+  // 每5秒报告一次数据接收统计（已关闭）
+  if (false && (time - last_stat_time).seconds() >= 5.0) {
     double rate = data_count / 5.0;
     RCLCPP_INFO(LOGGER, "📊 数据接收统计: %.1f Hz (%d 条/5秒)", rate, data_count);
     data_count = 0;
@@ -408,7 +410,8 @@ TiDiffBotHardware::read(const rclcpp::Time & time, const rclcpp::Duration & peri
   }
   
   auto clock = rclcpp::Clock();
-  RCLCPP_DEBUG_THROTTLE(LOGGER, clock, 5000, "串口数据: %s", line.c_str());
+  // 串口数据调试输出已关闭，避免刷屏
+  // RCLCPP_DEBUG_THROTTLE(LOGGER, clock, 5000, "串口数据: %s", line.c_str());
 
   std::stringstream ss(line);
   std::string token;
@@ -423,17 +426,8 @@ TiDiffBotHardware::read(const rclcpp::Time & time, const rclcpp::Duration & peri
     try {
       long left_tick = std::stol(tokens[0]);
       long right_tick = std::stol(tokens[1]);
-      // 修改：接收整型RPM，除以100得到实际RPM值
-      int left_rpm_int = std::stoi(tokens[2]);
-      int right_rpm_int = std::stoi(tokens[3]);
-      double left_rpm = static_cast<double>(left_rpm_int) / 100.0;
-      double right_rpm = static_cast<double>(right_rpm_int) / 100.0;
-      
-      // 调试：显示整型转换过程
-      if (data_count % 200 == 1) {
-        RCLCPP_DEBUG(LOGGER, "📥 RPM解析: 接收整型 L=%d→%.2f, R=%d→%.2f", 
-                    left_rpm_int, left_rpm, right_rpm_int, right_rpm);
-      }
+      double left_rpm = std::stod(tokens[2]);
+      double right_rpm = std::stod(tokens[3]);
 
       // 首次读取时，初始化编码器基准值
       if (!encoder_initialized_) {
@@ -576,11 +570,16 @@ TiDiffBotHardware::write(const rclcpp::Time & time, const rclcpp::Duration & /*p
   bool time_elapsed = write_time_diff >= min_interval_s;
   
   if (cmd_changed || time_elapsed) {
-    // 修改：发送整型RPM
-    std::ostringstream oss;
-    oss << rpm_l_int << "," << rpm_r_int;
+    // 修改：使用sprintf发送带符号的五位数整型RPM格式
+    char command_buffer[16];
+    snprintf(command_buffer, sizeof(command_buffer), "%+05d,%+05d", rpm_l_int, rpm_r_int);
     
-    write_line(oss.str());
+    std::string command_str(command_buffer);
+    write_line(command_str);
+    
+    // 显示串口下发的原始内容
+    RCLCPP_INFO(LOGGER, "📤 串口下发: %s (左轮=%.2f RPM, 右轮=%.2f RPM)", 
+                command_str.c_str(), rpm_l, rpm_r);
     
     // 更新命令跟踪状态（保存整型值）
     last_cmd_left = rpm_l_int;
@@ -593,17 +592,6 @@ TiDiffBotHardware::write(const rclcpp::Time & time, const rclcpp::Duration & /*p
       last_command_time_ = time;
       pending_cmd_left_ = cmd_[0];   // 保存原始rad/s命令
       pending_cmd_right_ = cmd_[1];
-      
-      RCLCPP_DEBUG(LOGGER, "🚀 新命令发送: 左=%d (%.2f RPM), 右=%d (%.2f RPM), rad/s=(%.3f, %.3f)", 
-                  rpm_l_int, rpm_l, rpm_r_int, rpm_r, cmd_[0], cmd_[1]);
-    }
-    
-    // 调试输出（限制频率）
-    static int write_count = 0;
-    write_count++;
-    if (write_count % 50 == 1) {  // 每50次输出一次
-      RCLCPP_DEBUG(LOGGER, "📤 命令统计: 左=%d (%.2f RPM), 右=%d (%.2f RPM)", 
-                  rpm_l_int, rpm_l, rpm_r_int, rpm_r);
     }
   }
 
