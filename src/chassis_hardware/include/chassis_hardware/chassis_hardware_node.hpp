@@ -4,6 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <std_msgs/msg/int32.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <serial/serial.h>
@@ -26,11 +27,12 @@ private:
     void initializeSerial();
     void serialReadThread();
     void parseOdometryData(const std::string& data);
-    void sendCommandToSerial(double vx, double vy, double vw, double gimbal_yaw, double gimbal_pitch);
+    void sendCommandToSerial(double vx, double vy, double vw, double gimbal_yaw, double gimbal_pitch, int victory_state);
     
     // ROS callbacks
     void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void cmdGimbalCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    void victoryCallback(const std_msgs::msg::Int32::SharedPtr msg);
     
     // Odometry publishing
     void publishOdometry(double x_offset, double y_offset, double yaw_total, 
@@ -45,6 +47,7 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_subscriber_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_gimbal_subscriber_;
+    rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr victory_subscriber_;
     
     // TF broadcaster
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
@@ -52,6 +55,7 @@ private:
     // Current command values
     double current_vx_, current_vy_, current_vw_;
     double current_gimbal_yaw_, current_gimbal_pitch_;
+    int current_victory_state_;
     
     // Odometry data
     double accumulated_x_, accumulated_y_, accumulated_yaw_;

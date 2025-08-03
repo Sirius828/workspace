@@ -45,13 +45,13 @@ install(TARGETS
 # Install Python scripts
 install(PROGRAMS
   scripts/test_chassis.py
+  scripts/victory_led_controller.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 # Install launch files
 install(DIRECTORY
   launch
-  config
   DESTINATION share/${PROJECT_NAME}/
 )
 

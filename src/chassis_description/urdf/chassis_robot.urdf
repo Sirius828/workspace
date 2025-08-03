@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<robot name="chassis_robot">
+  <!-- Base footprint (ground projection) -->
+  <link name="base_footprint"/>
+  
+  <!-- Base Link -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.035" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.110737" length="0.070"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.2 0.4 0.8 0.8"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.035" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.110737" length="0.070"/>
+      </geometry>
+    </collision>
+  </link>
+  
+  <!-- Joint from base_footprint to base_link -->
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.035" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- Materials -->
+  <material name="blue">
+    <color rgba="0.2 0.4 0.8 0.8"/>
+  </material>
+</robot>

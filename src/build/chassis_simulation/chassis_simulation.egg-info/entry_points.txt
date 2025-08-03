@@ -1,0 +1,3 @@
+[console_scripts]
+chassis_sim_node = chassis_simulation.chassis_sim_node:main
+

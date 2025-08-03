@@ -13,7 +13,7 @@ ChassisHardwareNode::ChassisHardwareNode()
     : Node("chassis_hardware_node"),
       running_(true),
       current_vx_(0.0), current_vy_(0.0), current_vw_(0.0),
-      current_gimbal_yaw_(0.0), current_gimbal_pitch_(0.0),
+      current_gimbal_yaw_(0.0), current_gimbal_pitch_(0.0), current_victory_state_(0),
       accumulated_x_(0.0), accumulated_y_(0.0), accumulated_yaw_(0.0)
 {
     // Declare parameters
@@ -44,6 +44,11 @@ ChassisHardwareNode::ChassisHardwareNode()
     cmd_gimbal_subscriber_ = this->create_subscription<geometry_msgs::msg::Twist>(
         "/cmd_gimbal", 10,
         std::bind(&ChassisHardwareNode::cmdGimbalCallback, this, std::placeholders::_1)
+    );
+    
+    victory_subscriber_ = this->create_subscription<std_msgs::msg::Int32>(
+        "/victory", 10,
+        std::bind(&ChassisHardwareNode::victoryCallback, this, std::placeholders::_1)
     );
     
     // Initialize TF broadcaster
@@ -294,7 +299,7 @@ void ChassisHardwareNode::cmdVelCallback(const geometry_msgs::msg::Twist::Shared
     
     // Send command to serial port
     sendCommandToSerial(current_vx_, current_vy_, current_vw_, 
-                       current_gimbal_yaw_, current_gimbal_pitch_);
+                       current_gimbal_yaw_, current_gimbal_pitch_, current_victory_state_);
 }
 
 void ChassisHardwareNode::cmdGimbalCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
@@ -305,11 +310,22 @@ void ChassisHardwareNode::cmdGimbalCallback(const geometry_msgs::msg::Twist::Sha
     
     // Send command to serial port
     sendCommandToSerial(current_vx_, current_vy_, current_vw_, 
-                       current_gimbal_yaw_, current_gimbal_pitch_);
+                       current_gimbal_yaw_, current_gimbal_pitch_, current_victory_state_);
+}
+
+void ChassisHardwareNode::victoryCallback(const std_msgs::msg::Int32::SharedPtr msg)
+{
+    current_victory_state_ = msg->data;
+    
+    RCLCPP_INFO(this->get_logger(), "Victory state updated: %d", current_victory_state_);
+    
+    // Send updated command to serial port
+    sendCommandToSerial(current_vx_, current_vy_, current_vw_, 
+                       current_gimbal_yaw_, current_gimbal_pitch_, current_victory_state_);
 }
 
 void ChassisHardwareNode::sendCommandToSerial(double vx, double vy, double vw, 
-                                             double gimbal_yaw, double gimbal_pitch)
+                                             double gimbal_yaw, double gimbal_pitch, int victory_state)
 {
     try {
         if (serial_port_ && serial_port_->isOpen()) {
@@ -317,18 +333,18 @@ void ChassisHardwareNode::sendCommandToSerial(double vx, double vy, double vw,
             double gimbal_yaw_deg = gimbal_yaw * 180.0 / M_PI;
             double gimbal_pitch_deg = gimbal_pitch * 180.0 / M_PI;
             
-            // Format: "x速度,y速度,角速度,yaw角度,pitch角度\r\n"
-            // 其中角度是角度制，速度单位是ROS标准单位(m/s, rad/s)
+            // Format: "x速度,y速度,角速度,yaw角度,pitch角度,victory状态\r\n"
+            // 其中角度是角度制，速度单位是ROS标准单位(m/s, rad/s)，victory_state是0或1
             std::ostringstream oss;
             oss << std::fixed << std::setprecision(6);
             oss << vx << "," << vy << "," << vw << "," 
-                << gimbal_yaw_deg << "," << gimbal_pitch_deg << "\r\n";
+                << gimbal_yaw_deg << "," << gimbal_pitch_deg << "," << victory_state << "\r\n";
             
             std::string command = oss.str();
             
             // 输出详细的发送调试信息
-            RCLCPP_INFO(this->get_logger(), "Sending to serial: vx=%.3f m/s, vy=%.3f m/s, vw=%.3f rad/s, yaw=%.2f°, pitch=%.2f°", 
-                       vx, vy, vw, gimbal_yaw_deg, gimbal_pitch_deg);
+            RCLCPP_INFO(this->get_logger(), "Sending to serial: vx=%.3f m/s, vy=%.3f m/s, vw=%.3f rad/s, yaw=%.2f°, pitch=%.2f°, victory=%d", 
+                       vx, vy, vw, gimbal_yaw_deg, gimbal_pitch_deg, victory_state);
             RCLCPP_DEBUG(this->get_logger(), "Raw serial command: '%s' (length: %zu)", 
                         command.c_str(), command.length());
             
