@@ -258,8 +258,8 @@ class GimbalPixelController(Node):
         self.declare_parameter('min_movement_threshold', 0.001)  # 最小运动阈值（弧度）
         
         # 云台角度限制
-        self.declare_parameter('yaw_min', -1.57)    # -90度
-        self.declare_parameter('yaw_max', 1.57)     # +90度
+        self.declare_parameter('yaw_min', -3.14)    # -180度
+        self.declare_parameter('yaw_max', 3.14)     # +180度
         self.declare_parameter('pitch_min', -0.52)  # -30度
         self.declare_parameter('pitch_max', 0.52)   # +30度
         
@@ -365,6 +365,13 @@ class GimbalPixelController(Node):
         self.filtered_error_x = 0.0
         self.filtered_error_y = 0.0
         
+        # 误差历史，用于预测控制
+        self.prev_pixel_error_x = 0.0
+        self.prev_pixel_error_y = 0.0
+        self.error_velocity_x = 0.0
+        self.error_velocity_y = 0.0
+        self.prev_time = None
+        
         # 云台角度限制
         self.yaw_min = self.get_parameter('yaw_min').value
         self.yaw_max = self.get_parameter('yaw_max').value
@@ -377,10 +384,17 @@ class GimbalPixelController(Node):
         self.last_target_time = None
         self.tracking_active = False
         
-        # QoS配置
+        # QoS配置 - 实时性优化但保持兼容性
         qos = QoSProfile(
+            depth=1,  # 保持最小队列深度，减少延迟
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,  # 最佳努力，优先速度
+            durability=QoSDurabilityPolicy.VOLATILE  # 易失性，减少内存占用
+        )
+        
+        # 云台控制QoS配置 - 使用RELIABLE确保兼容性
+        gimbal_qos = QoSProfile(
             depth=1,
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            reliability=QoSReliabilityPolicy.RELIABLE,  # 使用RELIABLE确保与其他节点兼容
             durability=QoSDurabilityPolicy.VOLATILE
         )
         
@@ -395,11 +409,11 @@ class GimbalPixelController(Node):
         self.gimbal_cmd_pub = self.create_publisher(
             Twist,
             '/cmd_gimbal',
-            10
+            gimbal_qos  # 使用兼容的RELIABLE QoS配置
         )
         
-        # 定时器：监控控制超时
-        self.timeout_timer = self.create_timer(0.1, self.check_timeout)
+        # 定时器：监控控制超时 - 提高检查频率
+        self.timeout_timer = self.create_timer(0.05, self.check_timeout)  # 20Hz检查频率
         
         self.get_logger().info('Gimbal pixel controller started with Fuzzy PID')
         self.get_logger().info(f'Target pixel: ({self.target_pixel_x}, {self.target_pixel_y})')
@@ -427,13 +441,67 @@ class GimbalPixelController(Node):
             self.get_logger().debug(f'Within deadzone: ({pixel_error_x:.1f}, {pixel_error_y:.1f}), skipping control')
             return
         
-        # 低通滤波器 - 平滑误差信号
-        self.filtered_error_x = self.filter_alpha * self.filtered_error_x + (1 - self.filter_alpha) * pixel_error_x
-        self.filtered_error_y = self.filter_alpha * self.filtered_error_y + (1 - self.filter_alpha) * pixel_error_y
+        # 自适应滤波：根据误差大小和变化率动态调整滤波强度
+        error_magnitude = math.sqrt(pixel_error_x**2 + pixel_error_y**2)
+        
+        # 计算误差变化率
+        if hasattr(self, 'prev_pixel_error_x') and hasattr(self, 'prev_pixel_error_y'):
+            error_change_rate = math.sqrt(
+                (pixel_error_x - self.prev_pixel_error_x)**2 + 
+                (pixel_error_y - self.prev_pixel_error_y)**2
+            )
+        else:
+            error_change_rate = 0.0
+            
+        # 保存当前误差用于下次计算变化率
+        self.prev_pixel_error_x = pixel_error_x
+        self.prev_pixel_error_y = pixel_error_y
+        
+        # 动态滤波系数：快速变化或大误差时减少滤波，慢速变化时增加滤波
+        if error_magnitude > 20 or error_change_rate > 15:  # 大误差或快速变化
+            dynamic_alpha = max(0.3, self.filter_alpha - 0.3)  # 减少滤波，提高响应
+        elif error_magnitude > 10 or error_change_rate > 8:  # 中等误差或变化
+            dynamic_alpha = max(0.4, self.filter_alpha - 0.2)  # 适度滤波
+        else:  # 小误差且变化缓慢
+            dynamic_alpha = self.filter_alpha  # 使用原始滤波系数
+            
+        # 自适应低通滤波器 - 平滑误差信号
+        self.filtered_error_x = dynamic_alpha * self.filtered_error_x + (1 - dynamic_alpha) * pixel_error_x
+        self.filtered_error_y = dynamic_alpha * self.filtered_error_y + (1 - dynamic_alpha) * pixel_error_y
         
         # 使用滤波后的误差
         pixel_error_x = self.filtered_error_x
         pixel_error_y = self.filtered_error_y
+        
+        # 预测控制：基于误差变化趋势预测未来位置
+        if self.prev_time is not None:
+            dt = current_time - self.prev_time
+            if dt > 0:
+                # 计算误差变化速度
+                velocity_x = (pixel_error_x - self.prev_pixel_error_x) / dt
+                velocity_y = (pixel_error_y - self.prev_pixel_error_y) / dt
+                
+                # 平滑速度估计（简单低通滤波）
+                self.error_velocity_x = 0.7 * self.error_velocity_x + 0.3 * velocity_x
+                self.error_velocity_y = 0.7 * self.error_velocity_y + 0.3 * velocity_y
+                
+                # 预测时间（根据系统延迟调整）
+                prediction_time = 0.05  # 50ms 预测时间
+                
+                # 添加预测补偿
+                predicted_error_x = pixel_error_x + self.error_velocity_x * prediction_time
+                predicted_error_y = pixel_error_y + self.error_velocity_y * prediction_time
+                
+                # 仅在速度较大时使用预测，避免噪声放大
+                if abs(self.error_velocity_x) > 10:  # 像素/秒
+                    pixel_error_x = predicted_error_x
+                if abs(self.error_velocity_y) > 10:  # 像素/秒
+                    pixel_error_y = predicted_error_y
+        
+        # 更新历史信息
+        self.prev_pixel_error_x = self.filtered_error_x
+        self.prev_pixel_error_y = self.filtered_error_y
+        self.prev_time = current_time
         
         # 像素误差归一化（转换为角度误差的近似）
         # 这个映射需要根据相机视场角调整
@@ -441,15 +509,37 @@ class GimbalPixelController(Node):
         fov_v = 0.75 # 垂直视场角（弧度），需要根据实际相机调整
         
         # 将像素误差转换为角度误差
-        angle_error_yaw = (pixel_error_x / self.image_width) * fov_h
+        angle_error_yaw = -(pixel_error_x / self.image_width) * fov_h
         angle_error_pitch = -(pixel_error_y / self.image_height) * fov_v  # 负号：向上为正
+        
+        # 自适应增强：根据误差大小动态调整响应强度
+        error_magnitude = math.sqrt(angle_error_yaw**2 + angle_error_pitch**2)
+        
+        # 动态增强系数：误差越大，响应越强
+        if error_magnitude > 0.3:  # 大误差
+            enhancement_factor = 1.5
+        elif error_magnitude > 0.15:  # 中等误差
+            enhancement_factor = 1.2
+        else:  # 小误差
+            enhancement_factor = 1.0
+            
+        # 应用增强系数
+        angle_error_yaw *= enhancement_factor
+        angle_error_pitch *= enhancement_factor
         
         # PID控制计算 - 模糊PID控制
         yaw_output, yaw_kp_adj, yaw_ki_adj, yaw_kd_adj = self.yaw_pid.update(angle_error_yaw, current_time)
         pitch_output, pitch_kp_adj, pitch_ki_adj, pitch_kd_adj = self.pitch_pid.update(angle_error_pitch, current_time)
         
+        # 动态运动阈值：根据误差大小调整阈值
+        dynamic_threshold = self.min_movement_threshold
+        if error_magnitude > 0.2:
+            dynamic_threshold *= 0.5  # 大误差时降低阈值，提高响应
+        elif error_magnitude > 0.1:
+            dynamic_threshold *= 0.7  # 中等误差时适度降低阈值
+            
         # 最小运动阈值检测 - 避免微小的无效运动
-        if abs(yaw_output) < self.min_movement_threshold and abs(pitch_output) < self.min_movement_threshold:
+        if abs(yaw_output) < dynamic_threshold and abs(pitch_output) < dynamic_threshold:
             self.get_logger().debug(f'Movement below threshold: yaw={yaw_output:.6f}, pitch={pitch_output:.6f}')
             return
         

@@ -18,7 +18,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Int32
+from std_msgs.msg import Bool
 from std_msgs.msg import Float32MultiArray
 import tf2_ros
 from tf2_ros import TransformBroadcaster
@@ -49,7 +49,7 @@ class ChassisSimulation(Node):
         self.current_vw = 0.0
         self.current_gimbal_yaw = 0.0
         self.current_gimbal_pitch = 0.0
-        self.current_victory_state = 0
+        self.current_victory_state = False
         
         # Odometry variables
         self.x = 0.0
@@ -68,7 +68,7 @@ class ChassisSimulation(Node):
             Float32MultiArray, '/cmd_gimbal', self.cmd_gimbal_callback, 10)
         
         self.victory_subscriber = self.create_subscription(
-            Int32, '/victory', self.victory_callback, 10)
+            Bool, '/victory', self.victory_callback, 10)
         
         # TF broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)

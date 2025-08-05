@@ -1,0 +1,50 @@
+# Chassis Position Controller Configuration
+# PID parameters and control settings
+
+position_controller:
+  # PID Parameters for position control
+  pid:
+    # Linear position control (x, y)
+    linear:
+      kp: 2.0      # 提高比例增益，更快响应位置误差
+      ki: 0.08     # 稍微提高积分增益，更快消除稳态误差
+      kd: 0.4      # 提高微分增益，更快的变化响应
+      
+    # Angular position control (yaw)
+    angular:
+      kp: 2.5      # 大幅提高角度控制增益，更快转向响应
+      ki: 0.08     # 提高积分增益
+      kd: 0.5      # 提高微分增益，更快角度修正
+  
+  # Control limits and tolerances
+  control:
+    # Maximum velocities
+    max_linear_velocity: 1.0    # m/s
+    max_angular_velocity: 1.5   # rad/s (稍微提高角速度上限，允许更快转向)
+    
+    # Minimum velocities (to avoid oscillation near target)
+    min_linear_velocity: 0.08   # m/s (提高最小速度，避免过慢)
+    min_angular_velocity: 0.15  # rad/s (提高最小角速度)
+    
+    # Position tolerances (when to consider target reached)
+    position_tolerance: 0.05    # meters (进一步放宽避免卡死)
+    angle_tolerance: 0.10       # radians (about 8.6 degrees) (进一步放宽)
+
+    # Control loop rate
+    control_frequency: 50.0     # Hz
+    
+    # Timeout for reaching target
+    timeout: 30.0              # seconds
+    
+  # Safety settings
+  safety:
+    # Maximum distance to target (safety check)
+    max_target_distance: 4.0   # meters
+    
+    # Emergency stop conditions
+    enable_safety_checks: true
+    
+  # Frame IDs
+  frames:
+    base_frame: "base_link"
+    odom_frame: "odom"

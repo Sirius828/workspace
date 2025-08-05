@@ -13,7 +13,7 @@ ChassisHardwareNode::ChassisHardwareNode()
     : Node("chassis_hardware_node"),
       running_(true),
       current_vx_(0.0), current_vy_(0.0), current_vw_(0.0),
-      current_gimbal_yaw_(0.0), current_gimbal_pitch_(0.0), current_victory_state_(0),
+      current_gimbal_yaw_(0.0), current_gimbal_pitch_(0.0), current_victory_state_(false),
       accumulated_x_(0.0), accumulated_y_(0.0), accumulated_yaw_(0.0)
 {
     // Declare parameters
@@ -46,7 +46,7 @@ ChassisHardwareNode::ChassisHardwareNode()
         std::bind(&ChassisHardwareNode::cmdGimbalCallback, this, std::placeholders::_1)
     );
     
-    victory_subscriber_ = this->create_subscription<std_msgs::msg::Int32>(
+    victory_subscriber_ = this->create_subscription<std_msgs::msg::Bool>(
         "/victory", 10,
         std::bind(&ChassisHardwareNode::victoryCallback, this, std::placeholders::_1)
     );
@@ -120,11 +120,11 @@ void ChassisHardwareNode::serialReadThread()
                         RCLCPP_DEBUG(this->get_logger(), ")");
                     }
                     
-                    // Process complete lines ending with \r
+                    // Process complete lines ending with \r\n
                     size_t pos = 0;
-                    while ((pos = buffer.find('\r\n')) != std::string::npos) {
+                    while ((pos = buffer.find("\r\n")) != std::string::npos) {
                         std::string line = buffer.substr(0, pos);
-                        buffer.erase(0, pos + 1);
+                        buffer.erase(0, pos + 2);
                         
                         if (!line.empty()) {
                             RCLCPP_DEBUG(this->get_logger(), "Processing line: '%s'", line.c_str());
@@ -313,11 +313,11 @@ void ChassisHardwareNode::cmdGimbalCallback(const geometry_msgs::msg::Twist::Sha
                        current_gimbal_yaw_, current_gimbal_pitch_, current_victory_state_);
 }
 
-void ChassisHardwareNode::victoryCallback(const std_msgs::msg::Int32::SharedPtr msg)
+void ChassisHardwareNode::victoryCallback(const std_msgs::msg::Bool::SharedPtr msg)
 {
     current_victory_state_ = msg->data;
     
-    RCLCPP_INFO(this->get_logger(), "Victory state updated: %d", current_victory_state_);
+    RCLCPP_INFO(this->get_logger(), "Victory state updated: %s", current_victory_state_ ? "true" : "false");
     
     // Send updated command to serial port
     sendCommandToSerial(current_vx_, current_vy_, current_vw_, 
@@ -325,7 +325,7 @@ void ChassisHardwareNode::victoryCallback(const std_msgs::msg::Int32::SharedPtr 
 }
 
 void ChassisHardwareNode::sendCommandToSerial(double vx, double vy, double vw, 
-                                             double gimbal_yaw, double gimbal_pitch, int victory_state)
+                                             double gimbal_yaw, double gimbal_pitch, bool victory_state)
 {
     try {
         if (serial_port_ && serial_port_->isOpen()) {
@@ -333,20 +333,21 @@ void ChassisHardwareNode::sendCommandToSerial(double vx, double vy, double vw,
             double gimbal_yaw_deg = gimbal_yaw * 180.0 / M_PI;
             double gimbal_pitch_deg = gimbal_pitch * 180.0 / M_PI;
             
-            // Format: "x速度,y速度,角速度,yaw角度,pitch角度,victory状态\r\n"
-            // 其中角度是角度制，速度单位是ROS标准单位(m/s, rad/s)，victory_state是0或1
+            // Convert linear velocities from m/s to mm/s for lower computer
+            double vx_mm_s = vx * 1000.0;  // m/s -> mm/s
+            double vy_mm_s = -vy * 1000.0;  // m/s -> mm/s (反向y方向)
+            // Angular velocity remains in rad/s
+            
+            // Format: "x速度(mm/s),y速度(mm/s),角速度(rad/s),yaw角度(度),pitch角度(度),victory状态\r\n"
             std::ostringstream oss;
             oss << std::fixed << std::setprecision(6);
-            oss << vx << "," << vy << "," << vw << "," 
-                << gimbal_yaw_deg << "," << gimbal_pitch_deg << "," << victory_state << "\r\n";
+            oss << vx_mm_s << "," << vy_mm_s << "," << vw << "," 
+                << gimbal_yaw_deg << "," << gimbal_pitch_deg << "," << (victory_state ? 1 : 0) << "\r\n";
             
             std::string command = oss.str();
             
-            // 输出详细的发送调试信息
-            RCLCPP_INFO(this->get_logger(), "Sending to serial: vx=%.3f m/s, vy=%.3f m/s, vw=%.3f rad/s, yaw=%.2f°, pitch=%.2f°, victory=%d", 
-                       vx, vy, vw, gimbal_yaw_deg, gimbal_pitch_deg, victory_state);
-            RCLCPP_DEBUG(this->get_logger(), "Raw serial command: '%s' (length: %zu)", 
-                        command.c_str(), command.length());
+            // 输出原始串口数据而不是解释后的速度信息
+            RCLCPP_INFO(this->get_logger(), "Sending raw serial data: '%s'", command.c_str());
             
             // 输出十六进制调试信息
             std::ostringstream hex_oss;

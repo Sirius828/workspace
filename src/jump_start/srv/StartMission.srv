@@ -1,0 +1,8 @@
+# 启动任务服务定义
+string mission_type    # 任务类型: "navigate", "track", "search_and_track", "demo"
+float32[] waypoints    # 路径点 [x1, y1, z1, x2, y2, z2, ...]
+string parameters      # 可选参数 JSON字符串
+---
+bool success          # 是否成功启动
+string message        # 状态消息
+string fsm_state      # 当前FSM状态

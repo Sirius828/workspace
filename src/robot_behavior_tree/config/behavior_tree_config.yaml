@@ -1,0 +1,122 @@
+# 机器人行为树系统配置文件
+
+# 行为树执行器配置
+behavior_tree_executor:
+  # 默认行为树文件
+  default_behavior_tree: "robot_main_behavior.xml"
+  
+  # 执行频率 (Hz)
+  tick_frequency: 10.0
+  
+  # 日志配置
+  logging:
+    enable_console_log: true
+    enable_file_log: true
+    enable_trace_log: true
+    log_file_path: "/tmp/robot_bt_log.txt"
+    trace_file_path: "/tmp/robot_bt_trace.fbl"
+  
+  # 超时配置
+  timeouts:
+    action_timeout: 30.0        # 行动超时时间
+    navigation_timeout: 60.0    # 导航超时时间
+    detection_timeout: 10.0     # 检测超时时间
+
+# 导航配置
+navigation:
+  # 默认移动参数
+  default_linear_speed: 0.4     # m/s
+  default_angular_speed: 0.5    # rad/s
+  default_position_tolerance: 0.15  # m
+  default_angle_tolerance: 0.1  # rad
+  
+  # 巡逻参数
+  patrol:
+    default_speed: 0.3          # m/s
+    wait_time_at_point: 2.0     # s
+    loop_patrol: true
+
+# 云台控制配置
+gimbal:
+  # 角度限制 (弧度)
+  yaw_limit: 1.57      # ±90度
+  pitch_limit: 0.52    # ±30度
+  
+  # 扫描参数
+  scan:
+    default_range: 3.14159     # 180度
+    default_speed: 0.3         # rad/s
+    default_duration: 10.0     # s
+  
+  # 追踪参数
+  tracking:
+    center_tolerance: 30.0     # pixels
+    confidence_threshold: 0.8
+    tracking_timeout: 2.0      # s
+
+# 目标检测配置
+detection:
+  # 默认检测参数
+  default_target_class: "ferrari"
+  default_confidence: 0.8
+  detection_timeout: 1.0       # s
+  
+  # 图像参数
+  image:
+    width: 640
+    height: 480
+    center_x: 320
+    center_y: 240
+
+# 任务配置
+missions:
+  # 搜索追踪任务
+  search_and_track:
+    max_search_time: 30.0      # s
+    max_track_time: 60.0       # s
+    search_radius: 2.0         # m
+    
+  # 巡逻任务
+  patrol:
+    # 默认巡逻点 (正方形模式)
+    default_points:
+      - [1.0, 0.0, 0.0]
+      - [1.0, 1.0, 0.0] 
+      - [0.0, 1.0, 0.0]
+      - [0.0, 0.0, 0.0]
+    
+    enable_detection: true
+    detection_during_patrol: true
+
+# 安全配置
+safety:
+  # 紧急停止条件
+  emergency_stop:
+    enable: true
+    max_linear_velocity: 1.0   # m/s
+    max_angular_velocity: 2.0  # rad/s
+  
+  # 碰撞检测
+  collision_detection:
+    enable: false
+    min_distance: 0.3          # m
+  
+  # 超时保护
+  watchdog:
+    enable: true
+    timeout: 5.0               # s
+
+# 调试配置
+debug:
+  # 输出级别: DEBUG, INFO, WARN, ERROR
+  log_level: "INFO"
+  
+  # 性能监控
+  performance_monitoring:
+    enable: true
+    publish_frequency: 1.0     # Hz
+  
+  # 可视化
+  visualization:
+    enable_markers: true
+    enable_path_display: true

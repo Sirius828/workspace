@@ -1,0 +1,19 @@
+# Goal: 搜索并追踪目标
+string target_class             # 目标类别
+geometry_msgs/Point search_center  # 搜索中心位置
+float32 search_radius          # 搜索半径
+float32 detection_confidence   # 检测置信度阈值
+float32 max_track_time         # 最大追踪时间
+---
+# Result: 搜索追踪结果
+bool target_found              # 是否找到目标
+bool tracking_completed        # 追踪是否完成
+geometry_msgs/Point last_target_position  # 最后目标位置
+float32 track_duration         # 追踪持续时间
+---
+# Feedback: 实时反馈
+string search_status           # 搜索状态
+bool target_in_view           # 目标是否在视野中
+geometry_msgs/Point target_pixel_pos  # 目标像素位置
+float32 detection_confidence  # 当前检测置信度
+geometry_msgs/Point gimbal_angle  # 云台角度

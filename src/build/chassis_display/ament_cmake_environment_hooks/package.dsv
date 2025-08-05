@@ -1,4 +1,0 @@
-source;share/chassis_display/local_setup.bash
-source;share/chassis_display/local_setup.dsv
-source;share/chassis_display/local_setup.sh
-source;share/chassis_display/local_setup.zsh

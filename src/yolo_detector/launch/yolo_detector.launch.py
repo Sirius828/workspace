@@ -10,7 +10,7 @@ def generate_launch_description():
     # YOLO模型文件参数
     yolo_model_arg = DeclareLaunchArgument(
         'yolo_model',
-        default_value='sticker2_int8.engine',
+        default_value='final_int8.engine',
         description='YOLO模型文件名 (支持格式: .engine, .pt, .onnx)'
     )
     

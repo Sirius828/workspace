@@ -1,0 +1,63 @@
+gimbal_pixel_controller:
+  ros__parameters:
+    # 图像参数
+    image_width: 640
+    image_height: 480
+    target_pixel_x: 320.0  # 图像中心x坐标
+    target_pixel_y: 240.0  # 图像中心y坐标
+    
+    # YAW轴模糊PID基础参数（左右转动）- 快速响应优化
+    # 提高基础增益以获得更快的响应速度
+    yaw_kp: 0.08      # 增加基础比例增益，提升响应速度
+    yaw_ki: 0.0002    # 适当增加积分增益，减少稳态误差
+    yaw_kd: 0.015     # 增加微分增益，提升阻尼，减少超调
+    
+    # PITCH轴模糊PID基础参数（上下转动）- 快速响应优化
+    pitch_kp: 0.08    # 增加基础比例增益
+    pitch_ki: 0.0002  # 适当增加积分增益
+    pitch_kd: 0.015   # 增加微分增益
+    
+    # 模糊逻辑参数配置 - 更激进的响应
+    # 误差范围定义（归一化值）- 收窄阈值以提高敏感性
+    fuzzy_error_small: 0.03     # 减小小误差阈值，提高敏感性
+    fuzzy_error_medium: 0.15    # 减小中等误差阈值
+    fuzzy_error_large: 0.6      # 减小大误差阈值，更早进入快速响应模式
+    
+    # 误差变化率范围定义（归一化值）- 提高动态响应
+    fuzzy_derror_small: 0.015   # 减小小误差变化率阈值
+    fuzzy_derror_medium: 0.08   # 减小中等误差变化率阈值
+    fuzzy_derror_large: 0.25    # 减小大误差变化率阈值
+    
+    # Kp调整系数矩阵 - 更激进的响应策略
+    fuzzy_kp_rules:
+      error_small:  [1.0, 1.2, 1.4]   # 小误差时也保持较高响应
+      error_medium: [1.4, 1.6, 1.8]   # 中等误差时提高响应
+      error_large:  [1.8, 2.0, 2.2]   # 大误差时大幅提高响应
+    
+    # Ki调整系数矩阵 - 适度提升以减少稳态误差
+    fuzzy_ki_rules:
+      error_small:  [0.8, 1.0, 1.2]   # 小误差时保持适中
+      error_medium: [1.2, 1.4, 1.6]   # 中等误差时提高积分作用
+      error_large:  [1.4, 1.6, 1.8]   # 大误差时增强积分作用
+    
+    # Kd调整系数矩阵 - 增强阻尼，防止快速响应引起的振荡
+    fuzzy_kd_rules:
+      error_small:  [0.8, 1.0, 1.3]   # 小误差时适度阻尼
+      error_medium: [1.2, 1.5, 1.8]   # 中等误差时增强阻尼
+      error_large:  [1.5, 1.8, 2.1]   # 大误差时大幅增强阻尼
+    
+    # 控制限制 - 快速响应优化
+    max_angle_change: 0.04   # 增加单次最大角度变化，允许更大的运动
+    min_confidence: 0.75     # 降低最小置信度阈值，减少丢失目标的情况
+    control_timeout: 1.5     # 减少控制超时时间，更快响应目标丢失
+    
+    # 抖动抑制参数 - 平衡响应速度和稳定性
+    deadzone_pixel: 2.0      # 减小像素死区，提高敏感性
+    filter_alpha: 0.6        # 降低滤波系数，减少延迟但保持一定平滑度
+    min_movement_threshold: 0.0005  # 降低最小运动阈值，允许更小的修正动作
+    
+    # 云台角度限制（弧度）
+    yaw_min: -2.00     # -90度
+    yaw_max: 2.00      # +90度
+    pitch_min: -0.52   # -30度
+    pitch_max: 0.52    # +30度

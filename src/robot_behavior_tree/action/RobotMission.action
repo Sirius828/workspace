@@ -1,0 +1,23 @@
+# Goal: 机器人任务目标
+string mission_type              # 任务类型: "patrol", "search_track", "goto_position", "follow_target"
+geometry_msgs/Point[] waypoints  # 路径点列表
+string target_class             # 要追踪的目标类别（如"ferrari"）
+float32 max_duration            # 最大任务时间（秒）
+bool enable_gimbal              # 是否启用云台控制
+float32 patrol_speed            # 巡逻速度
+float32 detection_confidence    # 检测置信度阈值
+---
+# Result: 任务结果
+bool success                    # 任务是否成功完成
+string result_message          # 结果描述
+geometry_msgs/Point final_position  # 最终位置
+float32 mission_duration       # 任务执行时间
+int32 targets_detected         # 检测到的目标数量
+---
+# Feedback: 任务进度反馈
+string current_behavior        # 当前执行的行为
+geometry_msgs/Point current_position  # 当前位置
+float32 progress_percentage    # 进度百分比
+string status_message         # 状态消息
+bool target_detected          # 是否检测到目标
+geometry_msgs/Point target_position  # 目标位置（像素坐标）

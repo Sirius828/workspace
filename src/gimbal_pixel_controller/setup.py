@@ -28,6 +28,8 @@ setup(
         'console_scripts': [
             'pixel_controller_node = gimbal_pixel_controller.pixel_controller_node:main',
             'test_node = gimbal_pixel_controller.test_node:main',
+            'performance_monitor = gimbal_pixel_controller.performance_monitor:main',
+            'qos_diagnostic = gimbal_pixel_controller.qos_diagnostic:main',
         ],
     },
 )

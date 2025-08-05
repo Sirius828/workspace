@@ -14,7 +14,7 @@ print("Press CTRL+C to exit")
 curr_value = GPIO.HIGH
 try:
     while True:
-        time.sleep(0.07)
+        time.sleep(1)
         print("pin {} now is {}".format(output_pin, curr_value))
         GPIO.output(output_pin, curr_value)
         # blink

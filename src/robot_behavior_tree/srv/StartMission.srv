@@ -1,0 +1,16 @@
+# StartMission.srv - 启动任务服务
+
+# 请求
+string mission_type                 # 任务类型: "patrol", "search_track", "goto_position", "follow_target"
+string behavior_tree_file          # 行为树文件路径（可选，空则使用默认）
+string target_class                # 目标类别（用于检测任务）
+geometry_msgs/Point[] waypoints    # 路径点列表
+geometry_msgs/Point target_position # 目标位置
+float32 max_speed                  # 最大速度
+float32 timeout                    # 任务超时时间
+bool enable_safety                 # 启用安全模式
+---
+# 响应
+bool success                       # 是否成功启动
+string message                     # 结果消息
+string mission_id                  # 任务ID（用于后续控制）

@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root main_tree_to_execute="SearchAndTrackMission">
+    
+    <!-- 搜索并追踪任务主行为树 -->
+    <BehaviorTree ID="SearchAndTrackMission">
+        <ReactiveSequence>
+            <!-- 1. 任务初始化 -->
+            <SubTree ID="SearchMissionInit"/>
+            
+            <!-- 2. 搜索阶段 -->
+            <Fallback>
+                <!-- 2.1 如果检测到目标，立即切换到追踪 -->
+                <SubTree ID="TrackingPhase"/>
+                
+                <!-- 2.2 继续搜索 -->
+                <SubTree ID="SearchPhase"/>
+            </Fallback>
+        </ReactiveSequence>
+    </BehaviorTree>
+
+    <!-- 搜索任务初始化 -->
+    <BehaviorTree ID="SearchMissionInit">
+        <Sequence>
+            <Action ID="StartDetection" target_class="{target_class}" confidence_threshold="0.8"/>
+            <Action ID="GimbalCenter" timeout="3.0"/>
+            <SetBlackboard output_key="search_started" value="true"/>
+            <SetBlackboard output_key="search_pattern_index" value="0"/>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 搜索阶段 -->
+    <BehaviorTree ID="SearchPhase">
+        <ReactiveSequence>
+            <!-- 检查是否还未找到目标 -->
+            <Inverter>
+                <Condition ID="IsTargetDetected" 
+                          target_class="{target_class}" 
+                          min_confidence="0.8" 
+                          timeout="1.0"/>
+            </Inverter>
+            
+            <!-- 执行搜索模式 -->
+            <SubTree ID="SearchPattern"/>
+        </ReactiveSequence>
+    </BehaviorTree>
+
+    <!-- 搜索模式 -->
+    <BehaviorTree ID="SearchPattern">
+        <Fallback>
+            <!-- 模式1：云台扫描 -->
+            <Sequence>
+                <IfThenElse>
+                    <BlackboardCheckInt return_on_mismatch="FAILURE" 
+                                       expected_value="0" 
+                                       blackboard_key="search_pattern_index"/>
+                    <Sequence>
+                        <Action ID="GimbalScanMode" 
+                               scan_range="3.14" 
+                               scan_speed="0.4"
+                               scan_duration="10.0"/>
+                        <SetBlackboard output_key="search_pattern_index" value="1"/>
+                    </Sequence>
+                    <AlwaysSuccess/>
+                </IfThenElse>
+            </Sequence>
+            
+            <!-- 模式2：移动搜索 -->
+            <Sequence>
+                <IfThenElse>
+                    <BlackboardCheckInt return_on_mismatch="FAILURE" 
+                                       expected_value="1" 
+                                       blackboard_key="search_pattern_index"/>
+                    <Sequence>
+                        <SubTree ID="MoveSearchPattern"/>
+                        <SetBlackboard output_key="search_pattern_index" value="2"/>
+                    </Sequence>
+                    <AlwaysSuccess/>
+                </IfThenElse>
+            </Sequence>
+            
+            <!-- 模式3：旋转搜索 -->
+            <Sequence>
+                <IfThenElse>
+                    <BlackboardCheckInt return_on_mismatch="FAILURE" 
+                                       expected_value="2" 
+                                       blackboard_key="search_pattern_index"/>
+                    <Sequence>
+                        <SubTree ID="RotateSearchPattern"/>
+                        <SetBlackboard output_key="search_pattern_index" value="0"/>
+                    </Sequence>
+                    <AlwaysSuccess/>
+                </IfThenElse>
+            </Sequence>
+        </Fallback>
+    </BehaviorTree>
+
+    <!-- 移动搜索模式 -->
+    <BehaviorTree ID="MoveSearchPattern">
+        <Sequence>
+            <!-- 前进一段距离 -->
+            <Action ID="MoveForward" distance="1.0" max_speed="0.3"/>
+            <Delay delay_msec="1000"/>
+            
+            <!-- 云台快速扫描 -->
+            <Action ID="GimbalScanMode" 
+                   scan_range="2.0" 
+                   scan_speed="0.6"
+                   scan_duration="5.0"/>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 旋转搜索模式 -->
+    <BehaviorTree ID="RotateSearchPattern">
+        <Sequence>
+            <!-- 机器人旋转180度 -->
+            <Action ID="RotateToAngle" 
+                   target_angle="3.14159" 
+                   angular_speed="0.5"
+                   tolerance="0.1"/>
+            <Delay delay_msec="1000"/>
+            
+            <!-- 云台全范围扫描 -->
+            <Action ID="GimbalScanMode" 
+                   scan_range="3.14" 
+                   scan_speed="0.3"
+                   scan_duration="8.0"/>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 追踪阶段 -->
+    <BehaviorTree ID="TrackingPhase">
+        <ReactiveSequence>
+            <!-- 确认检测到目标 -->
+            <Condition ID="IsTargetDetected" 
+                      target_class="{target_class}" 
+                      min_confidence="0.8" 
+                      timeout="0.5"
+                      target_position="{detected_target}"/>
+            
+            <!-- 执行追踪任务 -->
+            <SubTree ID="ExecuteTracking"/>
+        </ReactiveSequence>
+    </BehaviorTree>
+
+    <!-- 执行追踪 -->
+    <BehaviorTree ID="ExecuteTracking">
+        <ReactiveSequence>
+            <!-- 启用云台追踪 -->
+            <Action ID="EnableGimbalTracking" enable="true"/>
+            
+            <!-- 追踪策略 -->
+            <Fallback>
+                <!-- 策略1：目标居中，跟随移动 -->
+                <Sequence>
+                    <Condition ID="IsTargetCentered" 
+                              target_pixel_position="{detected_target}"
+                              center_tolerance="40.0"/>
+                    <SubTree ID="FollowTargetSmooth"/>
+                </Sequence>
+                
+                <!-- 策略2：目标偏离，等待云台调整 -->
+                <Sequence>
+                    <Delay delay_msec="800"/>
+                    <!-- 检查目标是否仍在视野中 -->
+                    <Condition ID="IsTargetDetected" 
+                              target_class="{target_class}" 
+                              min_confidence="0.7"
+                              timeout="1.5"/>
+                </Sequence>
+                
+                <!-- 策略3：目标丢失，重新搜索 -->
+                <Sequence>
+                    <Action ID="EnableGimbalTracking" enable="false"/>
+                    <SetBlackboard output_key="search_pattern_index" value="0"/>
+                    <AlwaysFailure/>
+                </Sequence>
+            </Fallback>
+        </ReactiveSequence>
+    </BehaviorTree>
+
+    <!-- 平滑跟随目标 -->
+    <BehaviorTree ID="FollowTargetSmooth">
+        <Sequence>
+            <!-- 获取当前位置 -->
+            <Action ID="GetCurrentPosition" current_position="{current_pos}"/>
+            
+            <!-- 动态调整前进距离（可根据目标大小/距离） -->
+            <SetBlackboard output_key="follow_distance" value="0.3"/>
+            
+            <!-- 缓慢前进，保持目标追踪 -->
+            <Action ID="MoveForward" 
+                   distance="{follow_distance}"
+                   max_speed="0.25"/>
+            
+            <!-- 给云台时间调整 -->
+            <Delay delay_msec="600"/>
+            
+            <!-- 验证目标仍在视野中 -->
+            <Condition ID="IsTargetDetected" 
+                      target_class="{target_class}" 
+                      min_confidence="0.7"
+                      timeout="1.0"/>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 目标丢失处理 -->
+    <BehaviorTree ID="TargetLostRecovery">
+        <Sequence>
+            <!-- 停止移动 -->
+            <Action ID="StopRobot"/>
+            
+            <!-- 云台快速扫描寻找目标 -->
+            <Action ID="GimbalScanMode" 
+                   scan_range="2.0" 
+                   scan_speed="0.8"
+                   scan_duration="5.0"/>
+            
+            <!-- 等待重新检测 -->
+            <Action ID="WaitForTarget" 
+                   target_class="{target_class}"
+                   min_confidence="0.8"
+                   max_wait_time="10.0"
+                   target_position="{recovered_target}"/>
+        </Sequence>
+    </BehaviorTree>
+
+</root>

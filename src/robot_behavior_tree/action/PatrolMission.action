@@ -1,0 +1,20 @@
+# Goal: 巡逻任务
+geometry_msgs/Point[] patrol_points  # 巡逻路径点
+bool loop_patrol                     # 是否循环巡逻
+float32 patrol_speed                # 巡逻速度
+float32 wait_time_at_point          # 在每个点的等待时间
+bool enable_detection               # 是否启用目标检测
+string detection_target             # 检测目标类别
+---
+# Result: 巡逻结果
+bool patrol_completed               # 巡逻是否完成
+int32 points_visited               # 访问的点数
+int32 targets_detected             # 检测到的目标数
+float32 total_distance             # 总行驶距离
+---
+# Feedback: 巡逻进度
+int32 current_point_index          # 当前目标点索引
+geometry_msgs/Point current_position  # 当前位置
+float32 distance_to_next_point     # 到下一个点的距离
+bool target_detected               # 是否检测到目标
+string patrol_status               # 巡逻状态
