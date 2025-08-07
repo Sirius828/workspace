@@ -6,55 +6,94 @@ gimbal_pixel_controller:
     target_pixel_x: 320.0  # 图像中心x坐标
     target_pixel_y: 240.0  # 图像中心y坐标
     
-    # YAW轴模糊PID基础参数（左右转动）
+    # YAW轴模糊PID基础参数（左右转动）- 回到更保守的设置
     # 注意：这些是基础PID参数，实际使用时会被模糊逻辑动态调整
-    yaw_kp: 0.03      # 进一步减小基础比例增益，避免静止抖动
-    yaw_ki: 0.008     # 增加基础积分增益，消除匀速跟踪的稳态误差
-    yaw_kd: 0.005     # 进一步减小基础微分增益，减少噪声敏感性
+    yaw_kp: 0.032     # 进一步降低Kp到更保守的水平
+    yaw_ki: 0.005     # 大幅降低Ki，避免积分导致的振荡
+    yaw_kd: 0.004     # 大幅降低Kd，减少微分噪声
     
-    # PITCH轴模糊PID基础参数（上下转动）
-    pitch_kp: 0.03    # 进一步减小基础比例增益
-    pitch_ki: 0.005   # 增加基础积分增益，消除匀速跟踪的稳态误差
-    pitch_kd: 0.005   # 进一步减小基础微分增益
+    # PITCH轴模糊PID基础参数（上下转动）- 保持当前稳定设置
+    pitch_kp: 0.035   # 保持当前稳定参数，适合小范围调整
+    pitch_ki: 0.006   # 保持当前稳定积分
+    pitch_kd: 0.006   # 保持当前稳定微分
     
-    # 模糊逻辑参数配置
-    # 误差范围定义（归一化值）- 优化响应性和稳定性平衡
-    fuzzy_error_small: 0.06     # 适中的小误差阈值，平衡死区和响应性
-    fuzzy_error_medium: 0.3     # 减小中等误差阈值，提前进入快速响应模式
-    fuzzy_error_large: 0.6      # 减小大误差阈值，更早启用最大响应
+    # YAW轴模糊逻辑参数配置 - 优化跟踪响应
+    # YAW轴误差范围定义（归一化值） - 调整阈值提升跟踪响应
+    yaw_fuzzy_error_small: 0.06     # YAW轴小误差阈值，适度减小以提升响应
+    yaw_fuzzy_error_medium: 0.18    # YAW轴中等误差阈值，适度减小
+    yaw_fuzzy_error_large: 0.35     # YAW轴大误差阈值，适度减小
     
-    # 误差变化率范围定义（归一化值）
-    fuzzy_derror_small: 0.012   # 适中的小误差变化率阈值
-    fuzzy_derror_medium: 0.06   # 减小中等误差变化率阈值，提高响应速度
-    fuzzy_derror_large: 0.2     # 减小大误差变化率阈值，快速检测运动
+    # YAW轴误差变化率范围定义（归一化值） - 降低小变化敏感度
+    yaw_fuzzy_derror_small: 0.015   # YAW轴小变化率，进一步降低敏感度
+    yaw_fuzzy_derror_medium: 0.06   # YAW轴中等变化率，保持检测能力
+    yaw_fuzzy_derror_large: 0.2     # YAW轴大变化率，保持响应能力
     
-    # Kp调整系数矩阵 - 优化以减少抖动
-    fuzzy_kp_rules:
-      error_small:  [0.7, 0.6, 0.8]   # 小误差时降低Kp减少抖动
-      error_medium: [1.4, 1.5, 1.6]   # 中等误差时提高响应性
-      error_large:  [2.2, 2.4, 2.6]   # 大误差时快速响应
+    # PITCH轴模糊逻辑参数配置 - 优化跟踪响应
+    # PITCH轴误差范围定义（归一化值）
+    pitch_fuzzy_error_small: 0.04   # PITCH轴小误差阈值，适度减小以提升响应
+    pitch_fuzzy_error_medium: 0.20  # PITCH轴中等误差阈值，适度减小
+    pitch_fuzzy_error_large: 0.40   # PITCH轴大误差阈值，适度减小
     
-    # Ki调整系数矩阵 - 保持较低以避免积分饱和
-    fuzzy_ki_rules:
-      error_small:  [0.5, 0.6, 0.8]   # 小误差时提高Ki，确保能消除稳态误差
-      error_medium: [1.0, 1.2, 1.4]   # 中等误差时进一步增加Ki
-      error_large:  [1.2, 1.4, 1.6]   # 大误差时最大Ki加速收敛
+    # PITCH轴误差变化率范围定义（归一化值）
+    pitch_fuzzy_derror_small: 0.01  # PITCH轴小变化率，稳定性优先
+    pitch_fuzzy_derror_medium: 0.05 # PITCH轴中等变化率，温和检测
+    pitch_fuzzy_derror_large: 0.18  # PITCH轴大变化率，稳定优化
     
-    # Kd调整系数矩阵 - 优化微分项以平衡响应和稳定性
-    fuzzy_kd_rules:
-      error_small:  [0.2, 0.3, 0.5]   # 小误差时大幅降低Kd减少噪声
-      error_medium: [1.0, 1.1, 1.2]   # 中等误差时增强阻尼
-      error_large:  [1.3, 1.5, 1.7]   # 大误差时最大阻尼快速稳定
+    # YAW轴Kp调整系数矩阵 - 保持小误差稳定，提升跟踪响应
+    yaw_fuzzy_kp_rules:
+      error_small:  [0.1, 0.05, 0.15]  # YAW轴小误差时保持零响应，维持稳定
+      error_medium: [1.8, 2.0, 2.2]    # YAW轴中等误差时提升响应速度
+      error_large:  [2.8, 3.2, 3.5]    # YAW轴大误差时增强跟踪能力
     
-    # 控制限制 - 优化以减少抖动
-    max_angle_change: 0.02    # 平衡响应速度和稳定性
-    min_confidence: 0.82      # 适度的置信度阈值，平衡稳定性和响应性
-    control_timeout: 2.0      # 适中的控制超时时间
+    # YAW轴Ki调整系数矩阵 - 适度增强积分，改善跟踪精度
+    yaw_fuzzy_ki_rules:
+      error_small:  [0.05, 0.1, 0.15]  # YAW轴小误差时保持低积分
+      error_medium: [1.2, 1.4, 1.6]    # YAW轴中等误差时适度增强积分
+      error_large:  [1.6, 1.8, 2.0]    # YAW轴大误差时增强积分
     
-    # 抖动抑制参数
-    deadzone_pixel: 6.0       # 适中的像素死区，平衡抖动抑制和响应性
-    filter_alpha: 0.75        # 适中的低通滤波器系数，平衡平滑和响应
-    min_movement_threshold: 0.0015  # 适中的最小运动阈值，平衡抖动抑制和灵敏度
+    # YAW轴Kd调整系数矩阵 - 增强阻尼防止超调
+    yaw_fuzzy_kd_rules:
+      error_small:  [0.5, 0.7, 0.9]   # YAW轴小误差时适度阻尼
+      error_medium: [1.3, 1.5, 1.7]   # YAW轴中等误差时强化阻尼
+      error_large:  [1.8, 2.0, 2.2]   # YAW轴大误差时最强阻尼
+    
+    # PITCH轴Kp调整系数矩阵 - 保持小误差稳定，适度提升跟踪
+    pitch_fuzzy_kp_rules:
+      error_small:  [0.6, 0.5, 0.7]   # PITCH轴小误差时保持稳定增益
+      error_medium: [1.8, 2.0, 2.2]   # PITCH轴中等误差时提升响应
+      error_large:  [2.6, 2.9, 3.2]   # PITCH轴大误差时增强响应
+    
+    # PITCH轴Ki调整系数矩阵 - 温和积分，避免饱和
+    pitch_fuzzy_ki_rules:
+      error_small:  [0.4, 0.5, 0.6]   # PITCH轴小误差时降低Ki，避免积分饱和
+      error_medium: [1.2, 1.4, 1.6]   # PITCH轴中等误差时温和积分
+      error_large:  [1.5, 1.7, 1.9]   # PITCH轴大误差时适度积分
+    
+    # PITCH轴Kd调整系数矩阵 - 强化阻尼，抑制抖动
+    pitch_fuzzy_kd_rules:
+      error_small:  [0.4, 0.5, 0.7]   # PITCH轴小误差时增强阻尼，抑制抖动
+      error_medium: [1.2, 1.3, 1.4]   # PITCH轴中等误差时适度阻尼
+      error_large:  [1.6, 1.8, 2.0]   # PITCH轴大误差时强化阻尼
+    
+    # 控制限制 - 针对快速目标跟踪优化
+    max_angle_change: 0.06    # 提升最大角速度，适应快速移动目标
+    min_confidence: 0.8       # 保持置信度阈值
+    control_timeout: 1.8      # 保持控制周期
+    
+    # 前馈控制参数 - 针对移动目标的预测控制（保守设置）
+    enable_feedforward: false         # 暂时禁用前馈控制，先恢复基础跟踪功能
+    velocity_feedforward_gain: 0.15   # 大幅降低速度前馈增益，避免过度激进
+    acceleration_feedforward_gain: 0.05 # 大幅降低加速度前馈增益，保持稳定性
+    prediction_time: 0.05             # 减少预测时间，降低预测误差影响
+    
+    # 运动检测参数 - 区分静止和运动状态
+    motion_detection_threshold: 8.0   # 提高像素运动阈值，只在明显运动时启用前馈
+    motion_history_length: 5          # 运动历史帧数，用于计算平均速度
+    
+    # 抖动抑制参数 - 优化跟踪平滑性
+    deadzone_pixel: 4.0       # 适度减小像素死区，提升小范围跟踪
+    filter_alpha: 0.65        # 降低滤波强度，提升跟踪敏感性
+    min_movement_threshold: 0.001   # 降低运动阈值，提升响应性
     
     # 云台角度限制（弧度）
     yaw_min: -3.66     # -180度

@@ -263,26 +263,55 @@ class GimbalPixelController(Node):
         self.declare_parameter('pitch_min', -0.52)  # -30度
         self.declare_parameter('pitch_max', 0.52)   # +30度
         
-        # 模糊逻辑参数声明
-        self.declare_parameter('fuzzy_error_small', 0.1)
-        self.declare_parameter('fuzzy_error_medium', 0.3)
-        self.declare_parameter('fuzzy_error_large', 1.0)
-        self.declare_parameter('fuzzy_derror_small', 0.05)
-        self.declare_parameter('fuzzy_derror_medium', 0.15)
-        self.declare_parameter('fuzzy_derror_large', 0.5)
+        # YAW轴模糊逻辑参数声明
+        self.declare_parameter('yaw_fuzzy_error_small', 0.1)
+        self.declare_parameter('yaw_fuzzy_error_medium', 0.3)
+        self.declare_parameter('yaw_fuzzy_error_large', 1.0)
+        self.declare_parameter('yaw_fuzzy_derror_small', 0.05)
+        self.declare_parameter('yaw_fuzzy_derror_medium', 0.15)
+        self.declare_parameter('yaw_fuzzy_derror_large', 0.5)
         
-        # 模糊规则矩阵参数声明
-        self.declare_parameter('fuzzy_kp_rules.error_small', [1.2, 1.1, 1.0])
-        self.declare_parameter('fuzzy_kp_rules.error_medium', [1.3, 1.2, 1.1])
-        self.declare_parameter('fuzzy_kp_rules.error_large', [1.5, 1.4, 1.2])
+        # PITCH轴模糊逻辑参数声明
+        self.declare_parameter('pitch_fuzzy_error_small', 0.1)
+        self.declare_parameter('pitch_fuzzy_error_medium', 0.3)
+        self.declare_parameter('pitch_fuzzy_error_large', 1.0)
+        self.declare_parameter('pitch_fuzzy_derror_small', 0.05)
+        self.declare_parameter('pitch_fuzzy_derror_medium', 0.15)
+        self.declare_parameter('pitch_fuzzy_derror_large', 0.5)
         
-        self.declare_parameter('fuzzy_ki_rules.error_small', [1.0, 0.9, 0.8])
-        self.declare_parameter('fuzzy_ki_rules.error_medium', [1.1, 1.0, 0.9])
-        self.declare_parameter('fuzzy_ki_rules.error_large', [1.2, 1.1, 1.0])
+        # YAW轴模糊规则矩阵参数声明
+        self.declare_parameter('yaw_fuzzy_kp_rules.error_small', [1.2, 1.1, 1.0])
+        self.declare_parameter('yaw_fuzzy_kp_rules.error_medium', [1.3, 1.2, 1.1])
+        self.declare_parameter('yaw_fuzzy_kp_rules.error_large', [1.5, 1.4, 1.2])
         
-        self.declare_parameter('fuzzy_kd_rules.error_small', [0.8, 1.0, 1.2])
-        self.declare_parameter('fuzzy_kd_rules.error_medium', [0.9, 1.1, 1.3])
-        self.declare_parameter('fuzzy_kd_rules.error_large', [1.0, 1.2, 1.4])
+        self.declare_parameter('yaw_fuzzy_ki_rules.error_small', [1.0, 0.9, 0.8])
+        self.declare_parameter('yaw_fuzzy_ki_rules.error_medium', [1.1, 1.0, 0.9])
+        self.declare_parameter('yaw_fuzzy_ki_rules.error_large', [1.2, 1.1, 1.0])
+        
+        self.declare_parameter('yaw_fuzzy_kd_rules.error_small', [0.8, 1.0, 1.2])
+        self.declare_parameter('yaw_fuzzy_kd_rules.error_medium', [0.9, 1.1, 1.3])
+        self.declare_parameter('yaw_fuzzy_kd_rules.error_large', [1.0, 1.2, 1.4])
+        
+        # PITCH轴模糊规则矩阵参数声明
+        self.declare_parameter('pitch_fuzzy_kp_rules.error_small', [1.2, 1.1, 1.0])
+        self.declare_parameter('pitch_fuzzy_kp_rules.error_medium', [1.3, 1.2, 1.1])
+        self.declare_parameter('pitch_fuzzy_kp_rules.error_large', [1.5, 1.4, 1.2])
+        
+        self.declare_parameter('pitch_fuzzy_ki_rules.error_small', [1.0, 0.9, 0.8])
+        self.declare_parameter('pitch_fuzzy_ki_rules.error_medium', [1.1, 1.0, 0.9])
+        self.declare_parameter('pitch_fuzzy_ki_rules.error_large', [1.2, 1.1, 1.0])
+        
+        self.declare_parameter('pitch_fuzzy_kd_rules.error_small', [0.8, 1.0, 1.2])
+        self.declare_parameter('pitch_fuzzy_kd_rules.error_medium', [0.9, 1.1, 1.3])
+        self.declare_parameter('pitch_fuzzy_kd_rules.error_large', [1.0, 1.2, 1.4])
+        
+        # 前馈控制参数声明
+        self.declare_parameter('enable_feedforward', True)
+        self.declare_parameter('velocity_feedforward_gain', 0.7)
+        self.declare_parameter('acceleration_feedforward_gain', 0.3)
+        self.declare_parameter('prediction_time', 0.1)
+        self.declare_parameter('motion_detection_threshold', 3.0)
+        self.declare_parameter('motion_history_length', 5)
         
         # 获取参数
         self.image_width = self.get_parameter('image_width').value
@@ -291,55 +320,96 @@ class GimbalPixelController(Node):
         self.target_pixel_y = self.get_parameter('target_pixel_y').value
         
         # 从YAML获取模糊逻辑参数
-        error_small = self.get_parameter('fuzzy_error_small').value
-        error_medium = self.get_parameter('fuzzy_error_medium').value
-        error_large = self.get_parameter('fuzzy_error_large').value
-        derror_small = self.get_parameter('fuzzy_derror_small').value
-        derror_medium = self.get_parameter('fuzzy_derror_medium').value
-        derror_large = self.get_parameter('fuzzy_derror_large').value
+        # 获取YAW轴模糊逻辑参数
+        yaw_error_small = self.get_parameter('yaw_fuzzy_error_small').value
+        yaw_error_medium = self.get_parameter('yaw_fuzzy_error_medium').value
+        yaw_error_large = self.get_parameter('yaw_fuzzy_error_large').value
+        yaw_derror_small = self.get_parameter('yaw_fuzzy_derror_small').value
+        yaw_derror_medium = self.get_parameter('yaw_fuzzy_derror_medium').value
+        yaw_derror_large = self.get_parameter('yaw_fuzzy_derror_large').value
         
-        # 构建误差范围字典
-        error_ranges = {
-            'small': (-error_small, error_small),
-            'medium': (-error_medium, error_medium),
-            'large': (-error_large, error_large)
+        # 获取PITCH轴模糊逻辑参数
+        pitch_error_small = self.get_parameter('pitch_fuzzy_error_small').value
+        pitch_error_medium = self.get_parameter('pitch_fuzzy_error_medium').value
+        pitch_error_large = self.get_parameter('pitch_fuzzy_error_large').value
+        pitch_derror_small = self.get_parameter('pitch_fuzzy_derror_small').value
+        pitch_derror_medium = self.get_parameter('pitch_fuzzy_derror_medium').value
+        pitch_derror_large = self.get_parameter('pitch_fuzzy_derror_large').value
+        
+        # 构建YAW轴误差范围字典
+        yaw_error_ranges = {
+            'small': (-yaw_error_small, yaw_error_small),
+            'medium': (-yaw_error_medium, yaw_error_medium),
+            'large': (-yaw_error_large, yaw_error_large)
         }
         
-        derror_ranges = {
-            'small': (-derror_small, derror_small),
-            'medium': (-derror_medium, derror_medium),
-            'large': (-derror_large, derror_large)
+        yaw_derror_ranges = {
+            'small': (-yaw_derror_small, yaw_derror_small),
+            'medium': (-yaw_derror_medium, yaw_derror_medium),
+            'large': (-yaw_derror_large, yaw_derror_large)
         }
         
-        # 从YAML获取模糊规则矩阵
-        fuzzy_rules = {
+        # 构建PITCH轴误差范围字典
+        pitch_error_ranges = {
+            'small': (-pitch_error_small, pitch_error_small),
+            'medium': (-pitch_error_medium, pitch_error_medium),
+            'large': (-pitch_error_large, pitch_error_large)
+        }
+        
+        pitch_derror_ranges = {
+            'small': (-pitch_derror_small, pitch_derror_small),
+            'medium': (-pitch_derror_medium, pitch_derror_medium),
+            'large': (-pitch_derror_large, pitch_derror_large)
+        }
+        
+        # 从YAML获取YAW轴模糊规则矩阵
+        yaw_fuzzy_rules = {
             'kp': [
-                self.get_parameter('fuzzy_kp_rules.error_small').value,
-                self.get_parameter('fuzzy_kp_rules.error_medium').value,
-                self.get_parameter('fuzzy_kp_rules.error_large').value
+                self.get_parameter('yaw_fuzzy_kp_rules.error_small').value,
+                self.get_parameter('yaw_fuzzy_kp_rules.error_medium').value,
+                self.get_parameter('yaw_fuzzy_kp_rules.error_large').value
             ],
             'ki': [
-                self.get_parameter('fuzzy_ki_rules.error_small').value,
-                self.get_parameter('fuzzy_ki_rules.error_medium').value,
-                self.get_parameter('fuzzy_ki_rules.error_large').value
+                self.get_parameter('yaw_fuzzy_ki_rules.error_small').value,
+                self.get_parameter('yaw_fuzzy_ki_rules.error_medium').value,
+                self.get_parameter('yaw_fuzzy_ki_rules.error_large').value
             ],
             'kd': [
-                self.get_parameter('fuzzy_kd_rules.error_small').value,
-                self.get_parameter('fuzzy_kd_rules.error_medium').value,
-                self.get_parameter('fuzzy_kd_rules.error_large').value
+                self.get_parameter('yaw_fuzzy_kd_rules.error_small').value,
+                self.get_parameter('yaw_fuzzy_kd_rules.error_medium').value,
+                self.get_parameter('yaw_fuzzy_kd_rules.error_large').value
             ]
         }
         
-        # PID控制器初始化 - 使用模糊PID控制器
+        # 从YAML获取PITCH轴模糊规则矩阵
+        pitch_fuzzy_rules = {
+            'kp': [
+                self.get_parameter('pitch_fuzzy_kp_rules.error_small').value,
+                self.get_parameter('pitch_fuzzy_kp_rules.error_medium').value,
+                self.get_parameter('pitch_fuzzy_kp_rules.error_large').value
+            ],
+            'ki': [
+                self.get_parameter('pitch_fuzzy_ki_rules.error_small').value,
+                self.get_parameter('pitch_fuzzy_ki_rules.error_medium').value,
+                self.get_parameter('pitch_fuzzy_ki_rules.error_large').value
+            ],
+            'kd': [
+                self.get_parameter('pitch_fuzzy_kd_rules.error_small').value,
+                self.get_parameter('pitch_fuzzy_kd_rules.error_medium').value,
+                self.get_parameter('pitch_fuzzy_kd_rules.error_large').value
+            ]
+        }
+        
+        # PID控制器初始化 - 使用分离的模糊PID控制器
         max_change = self.get_parameter('max_angle_change').value
         self.yaw_pid = FuzzyPIDController(
             base_kp=self.get_parameter('yaw_kp').value,
             base_ki=self.get_parameter('yaw_ki').value,
             base_kd=self.get_parameter('yaw_kd').value,
             output_limit=max_change,
-            error_ranges=error_ranges,
-            derror_ranges=derror_ranges,
-            fuzzy_rules=fuzzy_rules
+            error_ranges=yaw_error_ranges,
+            derror_ranges=yaw_derror_ranges,
+            fuzzy_rules=yaw_fuzzy_rules
         )
         
         self.pitch_pid = FuzzyPIDController(
@@ -347,9 +417,9 @@ class GimbalPixelController(Node):
             base_ki=self.get_parameter('pitch_ki').value,
             base_kd=self.get_parameter('pitch_kd').value,
             output_limit=max_change,
-            error_ranges=error_ranges,
-            derror_ranges=derror_ranges,
-            fuzzy_rules=fuzzy_rules
+            error_ranges=pitch_error_ranges,
+            derror_ranges=pitch_derror_ranges,
+            fuzzy_rules=pitch_fuzzy_rules
         )
         
         # 控制参数
@@ -384,6 +454,21 @@ class GimbalPixelController(Node):
         self.last_target_time = None
         self.tracking_active = False
         
+        # 前馈控制初始化
+        self.enable_feedforward = self.get_parameter('enable_feedforward').value
+        self.velocity_feedforward_gain = self.get_parameter('velocity_feedforward_gain').value
+        self.acceleration_feedforward_gain = self.get_parameter('acceleration_feedforward_gain').value
+        self.prediction_time = self.get_parameter('prediction_time').value
+        self.motion_detection_threshold = self.get_parameter('motion_detection_threshold').value
+        self.motion_history_length = self.get_parameter('motion_history_length').value
+        
+        # 运动历史记录
+        self.target_history = []  # 存储最近的目标位置和时间
+        self.velocity_estimate_x = 0.0
+        self.velocity_estimate_y = 0.0
+        self.acceleration_estimate_x = 0.0
+        self.acceleration_estimate_y = 0.0
+        
         # QoS配置 - 实时性优化但保持兼容性
         qos = QoSProfile(
             depth=1,  # 保持最小队列深度，减少延迟
@@ -415,10 +500,11 @@ class GimbalPixelController(Node):
         # 定时器：监控控制超时 - 提高检查频率
         self.timeout_timer = self.create_timer(0.05, self.check_timeout)  # 20Hz检查频率
         
-        self.get_logger().info('Gimbal pixel controller started with Fuzzy PID')
+        self.get_logger().info('Gimbal pixel controller started with Separated Fuzzy PID')
         self.get_logger().info(f'Target pixel: ({self.target_pixel_x}, {self.target_pixel_y})')
         self.get_logger().info(f'Image size: {self.image_width}x{self.image_height}')
-        self.get_logger().info(f'Fuzzy error ranges: Small={error_small}, Medium={error_medium}, Large={error_large}')
+        self.get_logger().info(f'YAW Fuzzy error ranges: Small={yaw_error_small}, Medium={yaw_error_medium}, Large={yaw_error_large}')
+        self.get_logger().info(f'PITCH Fuzzy error ranges: Small={pitch_error_small}, Medium={pitch_error_medium}, Large={pitch_error_large}')
         self.get_logger().info(f'Base PID - Yaw: Kp={self.get_parameter("yaw_kp").value}, Ki={self.get_parameter("yaw_ki").value}, Kd={self.get_parameter("yaw_kd").value}')
         self.get_logger().info(f'Base PID - Pitch: Kp={self.get_parameter("pitch_kp").value}, Ki={self.get_parameter("pitch_ki").value}, Kd={self.get_parameter("pitch_kd").value}')
     
@@ -436,8 +522,58 @@ class GimbalPixelController(Node):
         pixel_error_x = msg.x - self.target_pixel_x  # 正值表示目标在右侧
         pixel_error_y = msg.y - self.target_pixel_y  # 正值表示目标在下方
         
+        # 前馈控制：运动检测和预测
+        feedforward_x = 0.0
+        feedforward_y = 0.0
+        
+        if self.enable_feedforward:
+            # 更新目标历史记录
+            self.target_history.append((msg.x, msg.y, current_time))
+            if len(self.target_history) > self.motion_history_length:
+                self.target_history.pop(0)
+            
+            # 计算运动速度和加速度
+            if len(self.target_history) >= 3:
+                # 使用最近3个点计算速度和加速度
+                recent_points = self.target_history[-3:]
+                dt1 = recent_points[1][2] - recent_points[0][2]
+                dt2 = recent_points[2][2] - recent_points[1][2]
+                
+                if dt1 > 0 and dt2 > 0:
+                    # 计算速度（像素/秒）
+                    vel_x1 = (recent_points[1][0] - recent_points[0][0]) / dt1
+                    vel_y1 = (recent_points[1][1] - recent_points[0][1]) / dt1
+                    vel_x2 = (recent_points[2][0] - recent_points[1][0]) / dt2
+                    vel_y2 = (recent_points[2][1] - recent_points[1][1]) / dt2
+                    
+                    # 平滑速度估计
+                    self.velocity_estimate_x = 0.3 * vel_x2 + 0.7 * self.velocity_estimate_x
+                    self.velocity_estimate_y = 0.3 * vel_y2 + 0.7 * self.velocity_estimate_y
+                    
+                    # 计算加速度（像素/秒²）
+                    self.acceleration_estimate_x = 0.3 * (vel_x2 - vel_x1) / dt2 + 0.7 * self.acceleration_estimate_x
+                    self.acceleration_estimate_y = 0.3 * (vel_y2 - vel_y1) / dt2 + 0.7 * self.acceleration_estimate_y
+                    
+                    # 检测是否在运动
+                    motion_magnitude = math.sqrt(self.velocity_estimate_x**2 + self.velocity_estimate_y**2)
+                    
+                    if motion_magnitude > self.motion_detection_threshold:
+                        # 计算前馈控制量：预测未来位置的误差
+                        predicted_x = msg.x + self.velocity_estimate_x * self.prediction_time + 0.5 * self.acceleration_estimate_x * self.prediction_time**2
+                        predicted_y = msg.y + self.velocity_estimate_y * self.prediction_time + 0.5 * self.acceleration_estimate_y * self.prediction_time**2
+                        
+                        # 前馈误差（预测位置与目标中心的偏差）
+                        predicted_error_x = predicted_x - self.target_pixel_x
+                        predicted_error_y = predicted_y - self.target_pixel_y
+                        
+                        # 前馈控制量
+                        feedforward_x = self.velocity_feedforward_gain * self.velocity_estimate_x + self.acceleration_feedforward_gain * self.acceleration_estimate_x
+                        feedforward_y = self.velocity_feedforward_gain * self.velocity_estimate_y + self.acceleration_feedforward_gain * self.acceleration_estimate_y
+                        
+                        self.get_logger().debug(f'Motion detected: vel=({self.velocity_estimate_x:.1f}, {self.velocity_estimate_y:.1f}), ff=({feedforward_x:.3f}, {feedforward_y:.3f})')
+        
         # 死区检测 - 小误差时不响应，避免抖动
-        if abs(pixel_error_x) < self.deadzone_pixel and abs(pixel_error_y) < self.deadzone_pixel:
+        if abs(pixel_error_x) < self.deadzone_pixel and abs(pixel_error_y) < self.deadzone_pixel and abs(feedforward_x) < 0.01 and abs(feedforward_y) < 0.01:
             self.get_logger().debug(f'Within deadzone: ({pixel_error_x:.1f}, {pixel_error_y:.1f}), skipping control')
             return
         
@@ -531,6 +667,58 @@ class GimbalPixelController(Node):
         yaw_output, yaw_kp_adj, yaw_ki_adj, yaw_kd_adj = self.yaw_pid.update(angle_error_yaw, current_time)
         pitch_output, pitch_kp_adj, pitch_ki_adj, pitch_kd_adj = self.pitch_pid.update(angle_error_pitch, current_time)
         
+        # 前馈控制计算
+        feedforward_yaw = 0.0
+        feedforward_pitch = 0.0
+        
+        if self.enable_feedforward and len(self.target_history) >= 2:
+            # 检查运动速度是否足够大，只在明显运动时启用前馈控制
+            speed_magnitude = math.sqrt(self.error_velocity_x**2 + self.error_velocity_y**2)
+            
+            # 只在速度超过阈值时启用前馈控制，避免在微小抖动时触发
+            if speed_magnitude > self.motion_detection_threshold:
+                # 基于速度的前馈控制
+                velocity_feedforward_yaw = self.error_velocity_x * self.velocity_feedforward_gain * (fov_h / self.image_width)
+                velocity_feedforward_pitch = self.error_velocity_y * self.velocity_feedforward_gain * (fov_v / self.image_height)
+            
+            # 基于加速度的前馈控制（使用已计算的速度变化）
+            acceleration_feedforward_yaw = 0.0
+            acceleration_feedforward_pitch = 0.0
+            
+            if len(self.target_history) >= 3:
+                # 计算加速度（基于速度变化）
+                recent_points = self.target_history[-3:]
+                dt1 = recent_points[1][2] - recent_points[0][2]
+                dt2 = recent_points[2][2] - recent_points[1][2]
+                
+                if dt1 > 0 and dt2 > 0:
+                    # 计算两个时间段的速度
+                    vel_x1 = (recent_points[1][0] - recent_points[0][0]) / dt1
+                    vel_y1 = (recent_points[1][1] - recent_points[0][1]) / dt1
+                    vel_x2 = (recent_points[2][0] - recent_points[1][0]) / dt2
+                    vel_y2 = (recent_points[2][1] - recent_points[1][1]) / dt2
+                    
+                    # 计算加速度（像素/秒²）
+                    if dt2 > 0:
+                        acc_x = (vel_x2 - vel_x1) / dt2
+                        acc_y = (vel_y2 - vel_y1) / dt2
+                        
+                        acceleration_feedforward_yaw = acc_x * self.acceleration_feedforward_gain * (fov_h / self.image_width)
+                        acceleration_feedforward_pitch = acc_y * self.acceleration_feedforward_gain * (fov_v / self.image_height)
+            
+            # 综合前馈控制输出
+            feedforward_yaw = velocity_feedforward_yaw + acceleration_feedforward_yaw
+            feedforward_pitch = velocity_feedforward_pitch + acceleration_feedforward_pitch
+            
+            # 前馈控制限制（避免过度预测）- 更保守的限制
+            max_feedforward = 0.02  # 降低最大前馈控制量到约1.1度，更适合精细控制
+            feedforward_yaw = max(-max_feedforward, min(max_feedforward, feedforward_yaw))
+            feedforward_pitch = max(-max_feedforward, min(max_feedforward, feedforward_pitch))
+        
+        # 组合PID和前馈控制输出
+        total_yaw_output = yaw_output + feedforward_yaw
+        total_pitch_output = pitch_output + feedforward_pitch
+        
         # 动态运动阈值：根据误差大小调整阈值
         dynamic_threshold = self.min_movement_threshold
         if error_magnitude > 0.2:
@@ -539,13 +727,13 @@ class GimbalPixelController(Node):
             dynamic_threshold *= 0.7  # 中等误差时适度降低阈值
             
         # 最小运动阈值检测 - 避免微小的无效运动
-        if abs(yaw_output) < dynamic_threshold and abs(pitch_output) < dynamic_threshold:
-            self.get_logger().debug(f'Movement below threshold: yaw={yaw_output:.6f}, pitch={pitch_output:.6f}')
+        if abs(total_yaw_output) < dynamic_threshold and abs(total_pitch_output) < dynamic_threshold:
+            self.get_logger().debug(f'Movement below threshold: yaw={total_yaw_output:.6f}, pitch={total_pitch_output:.6f}')
             return
         
         # 更新云台角度
-        new_yaw = self.current_yaw + yaw_output
-        new_pitch = self.current_pitch + pitch_output
+        new_yaw = self.current_yaw + total_yaw_output
+        new_pitch = self.current_pitch + total_pitch_output
         
         # 角度限制
         new_yaw = max(self.yaw_min, min(self.yaw_max, new_yaw))
@@ -565,11 +753,13 @@ class GimbalPixelController(Node):
         self.last_target_time = current_time
         self.tracking_active = True
         
-        # 日志输出 - 包含模糊PID调整信息
+        # 日志输出 - 包含模糊PID调整信息和前馈控制
         self.get_logger().info(
             f'Target: ({msg.x:.1f}, {msg.y:.1f}) '
             f'Error: ({pixel_error_x:.1f}, {pixel_error_y:.1f}) '
             f'Gimbal: yaw={math.degrees(new_yaw):.1f}°, pitch={math.degrees(new_pitch):.1f}° '
+            f'PID: Y={yaw_output:.4f}, P={pitch_output:.4f} '
+            f'FF: Y={feedforward_yaw:.4f}, P={feedforward_pitch:.4f} '
             f'Conf: {confidence:.3f}'
         )
         
