@@ -14,6 +14,7 @@ ChassisHardwareNode::ChassisHardwareNode()
       running_(true),
       current_vx_(0.0), current_vy_(0.0), current_vw_(0.0),
       current_gimbal_yaw_(0.0), current_gimbal_pitch_(0.0), current_victory_state_(false),
+      victory_topic_active_(false), victory_timeout_duration_(1.0),
       accumulated_x_(0.0), accumulated_y_(0.0), accumulated_yaw_(0.0)
 {
     // Declare parameters
@@ -21,16 +22,19 @@ ChassisHardwareNode::ChassisHardwareNode()
     this->declare_parameter("baud_rate", 115200);
     this->declare_parameter("base_frame_id", "base_link");
     this->declare_parameter("odom_frame_id", "odom");
+    this->declare_parameter("victory_timeout", 1.0);  // 胜利消息超时时间（秒）
     
     // Get parameters
     serial_port_name_ = this->get_parameter("serial_port").as_string();
     baud_rate_ = this->get_parameter("baud_rate").as_int();
     base_frame_id_ = this->get_parameter("base_frame_id").as_string();
     odom_frame_id_ = this->get_parameter("odom_frame_id").as_string();
+    victory_timeout_duration_ = this->get_parameter("victory_timeout").as_double();
     
     RCLCPP_INFO(this->get_logger(), "Initializing chassis hardware node");
     RCLCPP_INFO(this->get_logger(), "Serial port: %s, Baud rate: %d", 
                 serial_port_name_.c_str(), baud_rate_);
+    RCLCPP_INFO(this->get_logger(), "Victory timeout: %.1f seconds", victory_timeout_duration_);
     
     // Initialize publishers
     odom_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>("/chassis/odom", 10);
@@ -56,6 +60,7 @@ ChassisHardwareNode::ChassisHardwareNode()
     
     // Initialize time
     last_time_ = this->get_clock()->now();
+    last_victory_msg_time_ = this->get_clock()->now();  // 初始化胜利消息时间
     
     // Initialize serial communication
     initializeSerial();
@@ -315,9 +320,16 @@ void ChassisHardwareNode::cmdGimbalCallback(const geometry_msgs::msg::Twist::Sha
 
 void ChassisHardwareNode::victoryCallback(const std_msgs::msg::Bool::SharedPtr msg)
 {
+    bool previous_victory_state = current_victory_state_;
     current_victory_state_ = msg->data;
     
-    RCLCPP_INFO(this->get_logger(), "Victory state updated: %s", current_victory_state_ ? "true" : "false");
+    // 记录收到victory消息的时间
+    last_victory_msg_time_ = this->get_clock()->now();
+    victory_topic_active_ = true;
+    
+    RCLCPP_INFO(this->get_logger(), "Victory message received: %s -> %s", 
+                previous_victory_state ? "true" : "false",
+                current_victory_state_ ? "true" : "false");
     
     // Send updated command to serial port
     sendCommandToSerial(current_vx_, current_vy_, current_vw_, 
@@ -338,16 +350,46 @@ void ChassisHardwareNode::sendCommandToSerial(double vx, double vy, double vw,
             double vy_mm_s = -vy * 1000.0;  // m/s -> mm/s (反向y方向)
             // Angular velocity remains in rad/s
             
+            // 检查victory话题是否超时
+            bool effective_victory_state = false;
+            if (victory_topic_active_) {
+                auto current_time = this->get_clock()->now();
+                double time_since_last_victory = (current_time - last_victory_msg_time_).seconds();
+                
+                if (time_since_last_victory <= victory_timeout_duration_) {
+                    // 在超时时间内且收到了victory=true，才发送1
+                    effective_victory_state = victory_state;
+                    RCLCPP_DEBUG(this->get_logger(), "Victory active: state=%s, time_since_last=%.2fs", 
+                                victory_state ? "true" : "false", time_since_last_victory);
+                } else {
+                    // 超时了，发送0
+                    effective_victory_state = false;
+                    victory_topic_active_ = false;  // 标记为不活跃
+                    RCLCPP_DEBUG(this->get_logger(), "Victory timeout: %.2fs > %.2fs, sending 0", 
+                                time_since_last_victory, victory_timeout_duration_);
+                }
+            } else {
+                // 没有收到过victory消息，发送0
+                effective_victory_state = false;
+                RCLCPP_DEBUG(this->get_logger(), "No victory message received, sending 0");
+            }
+            
             // Format: "x速度(mm/s),y速度(mm/s),角速度(rad/s),yaw角度(度),pitch角度(度),victory状态\r\n"
             std::ostringstream oss;
             oss << std::fixed << std::setprecision(6);
             oss << vx_mm_s << "," << vy_mm_s << "," << vw << "," 
-                << gimbal_yaw_deg << "," << gimbal_pitch_deg << "," << (victory_state ? 1 : 0) << "\r\n";
+                << gimbal_yaw_deg << "," << gimbal_pitch_deg << "," << (effective_victory_state ? 1 : 0) << "\r\n";
             
             std::string command = oss.str();
             
-            // 输出原始串口数据而不是解释后的速度信息
-            RCLCPP_INFO(this->get_logger(), "Sending raw serial data: '%s'", command.c_str());
+            // 输出原始串口数据，包括实际发送的victory状态
+            if (effective_victory_state != victory_state) {
+                RCLCPP_INFO(this->get_logger(), "Sending raw serial data: '%s' (victory overridden: %s -> %s)", 
+                           command.c_str(), victory_state ? "true" : "false", 
+                           effective_victory_state ? "true" : "false");
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Sending raw serial data: '%s'", command.c_str());
+            }
             
             // 输出十六进制调试信息
             std::ostringstream hex_oss;

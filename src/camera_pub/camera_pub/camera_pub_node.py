@@ -43,10 +43,11 @@ class CameraPublisher(Node):
         if not ret:
             self.get_logger().warning('读取摄像头帧失败')
             return
+        # 转灰度，减少带宽与后端预处理
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # cv2.imshow('camera_preview', frame)
-        cv2.waitKey(1)
         # 转成 ROS Image 并发布
-        msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
+        msg = self.bridge.cv2_to_imgmsg(frame, encoding='mono8')
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = 'camera_color_optical_frame'
         self.pub.publish(msg)

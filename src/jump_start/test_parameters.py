@@ -23,7 +23,6 @@ def test_parameters():
         
         print("\n🎯 Tracking Parameters:")
         print(f"  Position tolerance: {fsm.position_tolerance}m")
-        print(f"  Pixel tolerance: {fsm.pixel_tolerance}px")
         print(f"  Victory time threshold: {fsm.victory_time_threshold}s")
         print(f"  Valid tracking X: {fsm.valid_tracking_x}m")
         

@@ -4,9 +4,6 @@ fsm_controller:
     # 位置容差 (米)
     position_tolerance: 0.07
     
-    # 像素容差 (像素)
-    pixel_tolerance: 50
-    
     # 胜利时间阈值 (秒) - 有效打击累计时间
     victory_time_threshold: 2.0
     
@@ -18,29 +15,29 @@ fsm_controller:
     navigation_timeout: 30.0
     
     # 有效跟踪区域的x坐标阈值 (米) - 只有x>=2.0时打击才有效
-    valid_tracking_x: 1.95
+    valid_tracking_x: 1.9
     
     # 地图尺寸 (米)
     map_size: 4.0
     
     # 目标位置 (默认任务导航目标)
     target_position:
-      x: 2.0
-      y: 0.0 
-      z: 0.5
-    
+      x: 1.95
+      y: 0.0
+      z: 1.0
+
     # 视频录制配置
     enable_video_recording: true          # 是否启用视频录制
-    video_buffer_duration: 10.0          # 视频缓存时长 (秒)
-    video_fps: 24.0                      # 视频帧率
-    camera_topic: "/camera/image_raw"    # 相机话题名称
+    video_buffer_duration: 5.0          # 视频缓存时长 (秒)
+    video_fps: 60.0                      # 视频帧率
+    camera_topic: "/camera/color/image_raw"    # 相机话题名称
     yolo_topic: "/yolo_detection_result" # YOLO检测结果话题
     
     # 意外状态检测和搜索配置
     enable_search_rotation: true         # 是否启用搜索旋转
-    target_pixel_timeout: 1.5           # 目标像素更新超时时间 (秒)
-    search_angular_velocity: 1.0        # 搜索旋转角速度 (rad/s)
-    max_search_duration: 10.0           # 最大搜索持续时间 (秒)
+    target_pixel_timeout: 1.0           # 目标像素更新超时时间 (秒)
+    search_angular_velocity: 3.0        # 搜索旋转角速度 (rad/s)
+    max_search_duration: 7.0           # 最大搜索持续时间 (秒)
 
 # 任务执行器配置
 mission_executor:

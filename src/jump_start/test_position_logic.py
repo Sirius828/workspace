@@ -23,7 +23,6 @@ def test_position_logic():
         print(f'🗺️  Map size: {node.map_size}x{node.map_size}m')
         print(f'⏱️  Victory time threshold: {node.victory_time_threshold}s')
         print(f'📏 Position tolerance: {node.position_tolerance}m')
-        print(f'🎯 Pixel tolerance: {node.pixel_tolerance}px')
         print(f'🖼️  Image size: {node.image_width}x{node.image_height}')
         
         # 测试位置逻辑

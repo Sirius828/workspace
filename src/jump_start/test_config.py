@@ -18,7 +18,6 @@ def test_with_config():
         # 手动设置参数
         params = {
             'position_tolerance': 0.07,
-            'pixel_tolerance': 30,
             'victory_time_threshold': 2.0,
             'image_width': 640,
             'image_height': 480,
@@ -52,7 +51,6 @@ def test_with_config():
         
         print("\n🎯 Tracking Parameters (from config):")
         print(f"  Position tolerance: {params['position_tolerance']}m")
-        print(f"  Pixel tolerance: {params['pixel_tolerance']}px")
         print(f"  Victory time threshold: {params['victory_time_threshold']}s")
         print(f"  Valid tracking X: {params['valid_tracking_x']}m")
         

@@ -26,6 +26,7 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from ament_index_python.packages import get_package_share_directory
+from yolo_detector.msg import DetectionBox  # 导入检测框消息
 
 
 class FSMState(Enum):
@@ -47,7 +48,6 @@ class SimpleRobotFSM(Node):
         
         # 声明参数
         self.declare_parameter('position_tolerance', 0.3)      # 位置容差 (m)
-        self.declare_parameter('pixel_tolerance', 50)          # 像素容差
         self.declare_parameter('victory_time_threshold', 2.0)  # 胜利时间阈值 (s)
         self.declare_parameter('image_width', 640)             # 图像宽度
         self.declare_parameter('image_height', 480)            # 图像高度
@@ -64,7 +64,7 @@ class SimpleRobotFSM(Node):
         self.declare_parameter('enable_video_recording', True)  # 是否启用视频录制
         self.declare_parameter('video_buffer_duration', 10.0)  # 视频缓存时长 (s)
         self.declare_parameter('video_fps', 30.0)              # 视频帧率
-        self.declare_parameter('camera_topic', '/camera/image_raw')  # 相机话题
+        self.declare_parameter('camera_topic', '/camera/color/image_raw')  # 相机话题
         self.declare_parameter('yolo_topic', '/yolo_detection_result')  # YOLO话题
         
         # 搜索参数
@@ -75,7 +75,6 @@ class SimpleRobotFSM(Node):
         
         # 获取参数
         self.position_tolerance = self.get_parameter('position_tolerance').value
-        self.pixel_tolerance = self.get_parameter('pixel_tolerance').value
         self.victory_time_threshold = self.get_parameter('victory_time_threshold').value
         self.image_width = self.get_parameter('image_width').value
         self.image_height = self.get_parameter('image_height').value
@@ -113,6 +112,7 @@ class SimpleRobotFSM(Node):
         self.current_pose: Optional[Pose] = None
         self.target_pose: Optional[Pose] = None
         self.target_pixel: Optional[Point] = None
+        self.detection_box: Optional[DetectionBox] = None  # 新增：检测框信息
         
         # 时间管理
         self.state_entry_time = time.time()
@@ -129,14 +129,24 @@ class SimpleRobotFSM(Node):
         self.is_currently_hitting = False    # 当前是否在有效打击中
         self.is_searching = False            # 当前是否在搜索状态
         self.last_command_type = None        # 添加：跟踪最后发送的命令类型
+        self.victory_sent = False            # 添加：是否已经发送过victory消息
         
         # 视频录制相关
         self.cv_bridge = CvBridge() if self.enable_video_recording else None
         self.video_buffer = deque(maxlen=int(self.video_buffer_duration * self.video_fps)) if self.enable_video_recording else None
         
         if self.enable_video_recording:
-            self.video_save_path = os.path.join(get_package_share_directory('jump_start'), 'video')
+            # 修复：使用源码目录而不是安装目录来保存视频
+            try:
+                # 首先尝试使用源码目录
+                package_source_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                self.video_save_path = os.path.join(package_source_path, 'video')
+            except:
+                # 如果失败，使用安装目录
+                self.video_save_path = os.path.join(get_package_share_directory('jump_start'), 'video')
+            
             os.makedirs(self.video_save_path, exist_ok=True)
+            self.get_logger().info(f'📹 Video save path: {self.video_save_path}')
         else:
             self.video_save_path = None
         
@@ -165,6 +175,14 @@ class SimpleRobotFSM(Node):
             Point,
             '/target_position_pixel',
             self.target_pixel_callback,
+            qos_best_effort
+        )
+        
+        # 新增：订阅检测框信息
+        self.detection_box_sub = self.create_subscription(
+            DetectionBox,
+            '/detection_box',
+            self.detection_box_callback,
             qos_best_effort
         )
         
@@ -252,7 +270,6 @@ class SimpleRobotFSM(Node):
         
         self.get_logger().info('Simple Robot FSM Controller started')
         self.get_logger().info(f'Position tolerance: {self.position_tolerance}m')
-        self.get_logger().info(f'Pixel tolerance: {self.pixel_tolerance}px')
         self.get_logger().info(f'Victory time threshold: {self.victory_time_threshold}s')
         self.get_logger().info(f'Target position: ({self.target_x}, {self.target_y}, {self.target_z})')
         self.get_logger().info(f'Valid tracking zone: x >= {self.valid_tracking_x}m')
@@ -305,14 +322,14 @@ class SimpleRobotFSM(Node):
                         self.current_hit_session_start = None
     
     def target_pixel_callback(self, msg: Point):
-        """目标像素位置回调函数"""
+        """目标像素位置回调函数 - 仅用于云台控制，不参与胜利判断"""
         self.target_pixel = msg
-        self.target_detected = True
-        self.last_target_pixel_time = time.time()  # 记录接收时间
+        # 注意：不再无条件设置target_detected和更新时间戳
+        # 这些应该由detection_box_callback来处理，以避免干扰搜索超时逻辑
         
         # 添加目标检测调试信息
         current_x = self.current_pose.position.x if self.current_pose else 0.0
-        self.get_logger().info(f'🎯 Target detected at pixel ({msg.x:.0f}, {msg.y:.0f}), robot at x={current_x:.2f}m', throttle_duration_sec=3.0)
+        self.get_logger().info(f'🎯 Pixel data received: ({msg.x:.0f}, {msg.y:.0f}), robot at x={current_x:.2f}m', throttle_duration_sec=3.0)
         
         # 如果正在搜索状态，收到目标后退出搜索
         if self.current_state == FSMState.SEARCHING:
@@ -320,34 +337,68 @@ class SimpleRobotFSM(Node):
             self.transition_to_state(FSMState.TARGET_TRACKING)
             return
         
-        # 计算目标是否在图像中心
-        distance_to_center = math.sqrt(
-            (msg.x - self.image_center_x) ** 2 + 
-            (msg.y - self.image_center_y) ** 2
-        )
+        # 注意：pixel_callback不再参与胜利判断逻辑，由detection_box_callback负责
+    
+    def detection_box_callback(self, msg: DetectionBox):
+        """检测框回调函数 - 使用更精确的矩形包含判断"""
+        self.detection_box = msg
         
-        # 只有在有效跟踪区域内且目标在中心时才累计打击时间
-        target_in_center = distance_to_center <= self.pixel_tolerance
+        if not msg.detected:
+            self.target_detected = False
+            # 目标丢失时，不更新last_target_pixel_time，让搜索超时逻辑生效
+            # 停止当前打击会话
+            if self.is_currently_hitting:
+                if self.current_hit_session_start is not None:
+                    session_time = time.time() - self.current_hit_session_start
+                    self.victory_accumulated_time += session_time
+                    self.get_logger().info(f'⏹️ Hit session ended: target lost, session: {session_time:.1f}s, total accumulated: {self.victory_accumulated_time:.1f}s (victory requires {self.victory_time_threshold}s consecutive)')
+                
+                self.is_currently_hitting = False
+                self.current_hit_session_start = None
+            return
+        
+        # 只有在目标被检测到时才更新时间戳
+        self.target_detected = True
+        self.last_target_pixel_time = time.time()  # 记录接收时间
+        
+        # 添加检测框调试信息
+        current_x = self.current_pose.position.x if self.current_pose else 0.0
+        box_width = msg.x2 - msg.x1
+        box_height = msg.y2 - msg.y1
+        self.get_logger().info(f'🎯 Detection box: [{msg.x1:.0f},{msg.y1:.0f},{msg.x2:.0f},{msg.y2:.0f}] size={box_width:.0f}x{box_height:.0f}, confidence={msg.confidence:.3f}, robot at x={current_x:.2f}m', throttle_duration_sec=3.0)
+        
+        # 如果正在搜索状态，收到目标后退出搜索
+        if self.current_state == FSMState.SEARCHING:
+            self.get_logger().info('🎯 Target found during search, returning to tracking')
+            self.transition_to_state(FSMState.TARGET_TRACKING)
+            return
+        
+        # 检查图像中心是否在检测框内（更精确的判断）
+        image_center_x = self.image_width / 2.0
+        image_center_y = self.image_height / 2.0
+        
+        center_in_box = (msg.x1 <= image_center_x <= msg.x2 and 
+                        msg.y1 <= image_center_y <= msg.y2)
         
         # 添加目标位置调试信息
-        center_status = "IN CENTER" if target_in_center else "OFF CENTER"
+        center_status = "IN BOX" if center_in_box else "OUT OF BOX"
         zone_status = "VALID ZONE" if self.in_valid_tracking_zone else "INVALID ZONE"
-        self.get_logger().info(f'Target status: {center_status} (dist={distance_to_center:.1f}px), {zone_status}', throttle_duration_sec=3.0)
+        self.get_logger().info(f'Target status: {center_status} (center at {image_center_x:.0f},{image_center_y:.0f}), {zone_status}', throttle_duration_sec=3.0)
         
-        if target_in_center and self.in_valid_tracking_zone:
+        if center_in_box and self.in_valid_tracking_zone:
             if not self.is_currently_hitting:
                 # 开始新的打击会话
                 self.is_currently_hitting = True
                 self.current_hit_session_start = time.time()
                 current_x = self.current_pose.position.x if self.current_pose else 0.0
-                self.get_logger().info(f'🎯 Started hitting session (distance: {distance_to_center:.1f}px, x={current_x:.2f}m)')
+                self.get_logger().info(f'🎯 Started hitting session (center in detection box, x={current_x:.2f}m)')
         else:
             if self.is_currently_hitting:
                 # 结束当前打击会话，累加到总时间
                 if self.current_hit_session_start is not None:
                     session_time = time.time() - self.current_hit_session_start
                     self.victory_accumulated_time += session_time
-                    reason = "target left center" if not target_in_center else "left valid zone"
+                    reason = "center left box" if not center_in_box else "left valid zone"
                     self.get_logger().info(f'⏹️ Hit session ended: {reason}, session: {session_time:.1f}s, total accumulated: {self.victory_accumulated_time:.1f}s (victory requires {self.victory_time_threshold}s consecutive)')
                 
                 self.is_currently_hitting = False
@@ -372,12 +423,22 @@ class SimpleRobotFSM(Node):
             # 添加时间戳
             timestamp = time.time()
             self.video_buffer.append((cv_image.copy(), timestamp))
+            
+            # 定期显示视频缓存状态
+            if len(self.video_buffer) % 60 == 0:  # 每60帧显示一次（约2秒）
+                self.get_logger().info(f'📹 Video buffer: {len(self.video_buffer)} frames, latest image: {cv_image.shape}', throttle_duration_sec=5.0)
+                
         except Exception as e:
-            self.get_logger().error(f'Failed to convert image: {e}')
+            self.get_logger().error(f'📹 Failed to convert image: {e}')
+            import traceback
+            self.get_logger().error(f'📹 Image conversion traceback: {traceback.format_exc()}')
     
     def save_video_buffer(self):
         """保存视频缓存的最后10秒"""
+        self.get_logger().info(f'🎬 Video save triggered - enabled: {self.enable_video_recording}, buffer: {len(self.video_buffer) if self.video_buffer else 0} frames')
+        
         if not self.enable_video_recording or self.video_buffer is None or len(self.video_buffer) == 0:
+            self.get_logger().warn(f'📹 Cannot save video: enabled={self.enable_video_recording}, buffer_exists={self.video_buffer is not None}, buffer_size={len(self.video_buffer) if self.video_buffer else 0}')
             return
             
         try:
@@ -386,7 +447,10 @@ class SimpleRobotFSM(Node):
             recent_frames = [(frame, ts) for frame, ts in self.video_buffer 
                            if current_time - ts <= self.video_buffer_duration]
             
+            self.get_logger().info(f'🎬 Filtered {len(recent_frames)} frames from last {self.video_buffer_duration}s')
+            
             if len(recent_frames) == 0:
+                self.get_logger().warn('📹 No recent frames found in buffer')
                 return
                 
             # 创建视频文件
@@ -394,20 +458,42 @@ class SimpleRobotFSM(Node):
             video_filename = f"detection_{timestamp_str}.mp4"
             video_path = os.path.join(self.video_save_path, video_filename)
             
+            self.get_logger().info(f'🎬 Creating video: {video_path}')
+            
             # 获取帧尺寸
             height, width = recent_frames[0][0].shape[:2]
+            self.get_logger().info(f'🎬 Video dimensions: {width}x{height}')
             
             # 创建视频写入器
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             fps = min(self.video_fps, len(recent_frames) / self.video_buffer_duration)
+            self.get_logger().info(f'🎬 Video FPS: {fps:.1f}')
+            
             out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
             
+            if not out.isOpened():
+                self.get_logger().error(f'📹 Failed to open video writer for {video_path}')
+                return
+            
             # 写入帧
-            for frame, _ in recent_frames:
+            for i, (frame, _) in enumerate(recent_frames):
                 out.write(frame)
+                if i % 30 == 0:  # 每30帧记录一次进度
+                    self.get_logger().info(f'🎬 Writing frame {i+1}/{len(recent_frames)}')
             
             out.release()
-            self.get_logger().info(f'📹 Saved video: {video_filename} ({len(recent_frames)} frames)')
+            
+            # 验证文件是否创建成功
+            if os.path.exists(video_path):
+                file_size = os.path.getsize(video_path)
+                self.get_logger().info(f'📹 ✅ Video saved successfully: {video_filename} ({len(recent_frames)} frames, {file_size} bytes)')
+            else:
+                self.get_logger().error(f'📹 ❌ Video file was not created: {video_path}')
+                
+        except Exception as e:
+            self.get_logger().error(f'📹 Failed to save video: {e}')
+            import traceback
+            self.get_logger().error(f'📹 Traceback: {traceback.format_exc()}')
             
         except Exception as e:
             self.get_logger().error(f'Failed to save video: {e}')
@@ -488,9 +574,10 @@ class SimpleRobotFSM(Node):
         self.victory_accumulated_time = 0.0  # 重置时清零累计时间
         self.last_target_pixel_time = None
         self.is_searching = False
+                # 注意：不重置 self.victory_sent，保持victory消息只发送一次的特性
         if self.enable_video_recording and self.video_buffer is not None:
             self.video_buffer.clear()
-        self.get_logger().info('FSM reset')
+        self.get_logger().info('FSM reset (victory_sent flag preserved)')
     
     def start_default_mission(self):
         """启动默认任务（导航到指定位置）"""
@@ -666,13 +753,15 @@ class SimpleRobotFSM(Node):
             self.get_logger().info(f'🎯 Ready to hit: waiting for target in center (x={current_x:.2f}m)', throttle_duration_sec=3.0)
         
         # 检查胜利条件 - 修改：只要当前连续击中时间达到阈值就胜利
-        if current_session_time >= self.victory_time_threshold:
+        if current_session_time >= self.victory_time_threshold and not self.victory_sent:
             self.get_logger().info(f'🏆 Continuously hit target for {current_session_time:.1f}s in valid zone - Victory!')
             
-            # 发布胜利消息
+            # 发布胜利消息（只发送一次）
             victory_msg = Bool()
             victory_msg.data = True
             self.victory_pub.publish(victory_msg)
+            self.victory_sent = True  # 标记已发送，防止重复发送
+            self.get_logger().info('🎉 Victory message sent (will not be sent again)')
             
             # 保存胜利时刻的视频
             self.save_video_buffer()

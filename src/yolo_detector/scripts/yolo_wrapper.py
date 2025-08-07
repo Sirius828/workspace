@@ -91,8 +91,12 @@ def main():
         print(f"✗ ultralytics 导入失败: {e}")
         return 1
     
-    # 导入检测器节点
+    # 导入检测器节点 - 直接从源目录导入
     try:
+        src_path = "/home/sirius/ssd/ros2workspace/src/yolo_detector"
+        if src_path not in sys.path:
+            sys.path.insert(0, src_path)
+        
         from yolo_detector.detector_node import main as detector_main
         print("✓ YOLO检测器节点导入成功")
     except ImportError as e:

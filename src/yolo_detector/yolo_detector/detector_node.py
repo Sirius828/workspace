@@ -8,6 +8,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Point
+from yolo_detector.msg import DetectionBox
 from ultralytics import YOLO
 
 
@@ -102,6 +103,13 @@ class YoloDetectorNode(Node):
             qos
         )
         
+        # 新增：发布检测框信息
+        self.detection_box_pub = self.create_publisher(
+            DetectionBox,
+            '/detection_box',
+            qos
+        )
+        
         # 可选：发布检测结果图像
         self.result_image_pub = self.create_publisher(
             Image,
@@ -135,12 +143,20 @@ class YoloDetectorNode(Node):
                 best_detection = self.find_best_target(boxes, scores, cls_ids)
                 
                 if best_detection is not None:
-                    # 发布目标位置
+                    # 发布目标位置（保持向后兼容）
                     self.publish_target_position(best_detection)
+                    # 发布检测框信息
+                    self.publish_detection_box(best_detection, detected=True)
+                else:
+                    # 没有检测到目标时，发布detected=False的消息
+                    self.publish_detection_box(None, detected=False)
                 
                 # 可选：发布可视化结果
                 result_image = self.draw_detections(cv_image, boxes, scores, cls_ids)
                 self.publish_result_image(result_image, msg.header)
+            else:
+                # 没有检测结果时，发布detected=False的消息
+                self.publish_detection_box(None, detected=False)
             
         except Exception as e:
             self.get_logger().error(f'Error in image processing: {e}')
@@ -185,6 +201,39 @@ class YoloDetectorNode(Node):
         
         class_name = self.class_names[cls_id]
         self.get_logger().info(f'Target detected: {class_name} at ({center_x:.1f}, {center_y:.1f}) with confidence {score:.3f}')
+    
+    def publish_detection_box(self, detection, detected=True):
+        """发布检测框信息"""
+        detection_msg = DetectionBox()
+        detection_msg.detected = detected
+        
+        if detected and detection is not None:
+            box, score, cls_id = detection
+            x1, y1, x2, y2 = box
+            
+            # 填充检测框信息
+            detection_msg.x1 = float(x1)
+            detection_msg.y1 = float(y1)
+            detection_msg.x2 = float(x2)
+            detection_msg.y2 = float(y2)
+            detection_msg.confidence = float(score)
+            detection_msg.class_id = int(cls_id)
+            detection_msg.class_name = self.class_names[cls_id]
+            
+            self.get_logger().info(f'Publishing detection box: [{x1:.0f},{y1:.0f},{x2:.0f},{y2:.0f}] confidence={score:.3f} class={detection_msg.class_name}')
+        else:
+            # 没有检测到目标时，设置默认值
+            detection_msg.x1 = 0.0
+            detection_msg.y1 = 0.0
+            detection_msg.x2 = 0.0
+            detection_msg.y2 = 0.0
+            detection_msg.confidence = 0.0
+            detection_msg.class_id = -1
+            detection_msg.class_name = ""
+            
+            self.get_logger().info('No target detected - publishing detection box with detected=False')
+        
+        self.detection_box_pub.publish(detection_msg)
     
     def draw_detections(self, img, boxes, scores, cls_ids):
         """在图像上绘制检测结果"""

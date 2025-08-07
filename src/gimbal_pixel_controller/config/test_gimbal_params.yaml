@@ -1,0 +1,16 @@
+gimbal_params:
+  fuzzy_pid:
+    small_error_stability: true
+    large_error_response: fast
+    tuning_parameters:
+      k_p: 1.5
+      k_i: 0.5
+      k_d: 0.1
+  adaptive_control:
+    dynamic_adjustment: true
+    parameters:
+      min_response_time: 0.1
+      max_response_time: 0.5
+      error_thresholds:
+        small: 0.1
+        large: 1.0

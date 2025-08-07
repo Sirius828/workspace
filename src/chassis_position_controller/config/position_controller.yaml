@@ -19,7 +19,7 @@ position_controller:
   # Control limits and tolerances
   control:
     # Maximum velocities
-    max_linear_velocity: 1.0    # m/s
+    max_linear_velocity: 2.0    # m/s
     max_angular_velocity: 1.5   # rad/s (稍微提高角速度上限，允许更快转向)
     
     # Minimum velocities (to avoid oscillation near target)

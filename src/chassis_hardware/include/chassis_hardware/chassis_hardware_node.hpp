@@ -57,6 +57,11 @@ private:
     double current_gimbal_yaw_, current_gimbal_pitch_;
     bool current_victory_state_;
     
+    // Victory topic monitoring
+    rclcpp::Time last_victory_msg_time_;
+    bool victory_topic_active_;
+    double victory_timeout_duration_;  // 胜利消息超时时间 (秒)
+    
     // Odometry data
     double accumulated_x_, accumulated_y_, accumulated_yaw_;
     rclcpp::Time last_time_;
