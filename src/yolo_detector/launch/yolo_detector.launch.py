@@ -17,7 +17,7 @@ def generate_launch_description():
     # 检测置信度阈值参数
     yolo_confidence_arg = DeclareLaunchArgument(
         'yolo_confidence',
-        default_value='0.60',
+        default_value='0.65',
         description='YOLO检测置信度阈值 (范围: 0.0-1.0)'
     )
     
